@@ -25,10 +25,6 @@ class HeadlessArgs:
     device = "cuda:0"
 
 def setup_genesis_env():
-    """
-    Handles Registration, Config, and Environment Creation.
-    Returns the initialized environment object.
-    """
     print("=== Initializing Genesis Environment (Run Once) ===")
 
     # Register the task manually
@@ -57,7 +53,7 @@ def verify_sensors_and_motors(env):
     """
     Checks Proprioception (48), Gravity, Velocity, and Motor Control.
     """
-    print("\n\n=== TEST SUITE 1: SENSORS & MOTORS ===")
+    print("\n\n=== TESTING SENSORS & MOTORS ===")
     
     # Reset to get fresh observations
     obs_pack = env.reset()
@@ -69,9 +65,6 @@ def verify_sensors_and_motors(env):
         obs = obs_pack
         priv_obs = None
 
-    # ---------------------------------------------------------
-    # CHECK 1: SENSOR INTEGRITY
-    # ---------------------------------------------------------
     print("\n--- Sensor Integrity Check ---")
     
     # Verify Proprioceptive Observation Shape
@@ -92,9 +85,7 @@ def verify_sensors_and_motors(env):
     else:
         print("FAILURE: Privileged observations returned None")
 
-    # ---------------------------------------------------------
-    # CHECK 2: PHYSICS REALITY
-    # ---------------------------------------------------------
+
     print("\n--- Physics Reality Check ---")
     
     # Check Gravity Vector
@@ -113,9 +104,7 @@ def verify_sensors_and_motors(env):
     else:
         print("WARNING: Robot is drifting")
 
-    # ---------------------------------------------------------
-    # CHECK 3: MOTOR CONTROL
-    # ---------------------------------------------------------
+
     print("\n--- Motor Control Check ---")
     
     raw_target = 0.5
@@ -164,28 +153,25 @@ def verify_privileged_content(env):
     """
     Checks specific privileged data fields (Last Action, Mass, Friction).
     """
-    print("\n\n=== TEST SUITE 2: PRIVILEGED CONTENT ===")
+    print("\n\n=== TESTING PRIVILEGED OBSERVATIONS ===")
     
     # CRITICAL: Reset environment to clear previous motor tests
     print("Resetting environment for fresh test...")
     env.reset()
 
-    # ---------------------------------------------------------
-    # TEST 1: LAST ACTIONS MEMORY CHECK
-    # ---------------------------------------------------------
-    print("\n--- Test 1: Last Actions Memory Check ---")
+    print("\n--- Last Actions Memory Check ---")
     
-    # Step 1: Send Action A (All +1.0)
+    # Send Action A (All +1.0)
     action_A = torch.ones((1, 12), device=env.device) * 1.0
     print("Step 1: Sending Action A (All 1.0)...")
     _, priv_obs_1, _, _, _ = env.step(action_A)
     
-    # Step 2: Send Action B (All -1.0)
+    # Send Action B (All -1.0)
     action_B = torch.ones((1, 12), device=env.device) * -1.0
     print("Step 2: Sending Action B (All -1.0)...")
     _, priv_obs_2, _, _, _ = env.step(action_B)
     
-    # CHECK: In Step 2, the Privileged Obs should contain Action A (from Step 1)
+    # CHECK: Privileged Obs should contain Action A (from Step 1)
     # Indices 48 to 59 correspond to 'last_actions'
     stored_last_action = priv_obs_2[0, 48:60].cpu().numpy()
     
@@ -196,9 +182,7 @@ def verify_privileged_content(env):
     else:
         print(f"FAILURE: Expected 1.0, got {stored_last_action[0]}")
 
-    # ---------------------------------------------------------
-    # TEST 2: PHYSICS PARAMETERS CHECK
-    # ---------------------------------------------------------
+   
     print("\n--- Physics Parameters Check ---")
     
     # Extract the tail of the privileged vector
@@ -232,5 +216,5 @@ if __name__ == '__main__':
     # Run Test 1 (Sensors/Motors)
     verify_sensors_and_motors(env)
     
-    # Run Test 2 (Privileged Data Content)
+    # Run Test 2 (Privileged Observations)
     verify_privileged_content(env)
