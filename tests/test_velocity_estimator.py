@@ -1,5 +1,5 @@
 import torch
-from velocity_estimator import VelocityEstimator
+from modules.velocity_estimator import VelocityEstimator
 
 def test_model():
     print("Testing VelocityEstimator...")
