@@ -102,6 +102,19 @@ class ActorCritic(nn.Module):
         log_prob = distribution.log_prob(action).sum(dim=-1, keepdim=True)
         return action, log_prob
 
+    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Evaluate log probabilities and entropy of given actions under current policy.
+        Used for PPO loss computation.
+        """
+        mean = self.actor(obs)
+        std = self.log_std.exp()
+        distribution = Normal(mean, std)
+        log_prob = distribution.log_prob(actions).sum(dim=-1, keepdim=True)
+        entropy = distribution.entropy().sum(dim=-1).mean()
+        return log_prob, entropy
+    
+    
     def evaluate(self, critic_obs: torch.Tensor) -> torch.Tensor:
         """Compute value estimate from privileged observations."""
         return self.critic(critic_obs)
