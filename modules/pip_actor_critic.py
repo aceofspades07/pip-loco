@@ -1,6 +1,7 @@
 """
 PIP-Loco Asymmetric Actor-Critic Network
 PPO-based architecture with blind actor and privileged critic.
+Smart Wrapper that owns VelocityEstimator and Dreamer sub-modules.
 """
 
 import math
@@ -17,6 +18,8 @@ class ActorCritic(nn.Module):
     
     Actor: Processes partial observations (proprioception + velocity estimate + dreamed trajectory)
     Critic: Processes privileged simulation state (friction, terrain, true velocity, etc.)
+    
+    This class owns the sub-modules and handles input concatenation internally.
     """
 
     def __init__(
@@ -24,6 +27,9 @@ class ActorCritic(nn.Module):
         num_actor_obs: int,
         num_critic_obs: int,
         num_actions: int,
+        estimator: nn.Module,
+        dreamer: nn.Module,
+        horizon: int = 5,
         actor_hidden_dims: List[int] = [512, 256, 128],
         critic_hidden_dims: List[int] = [512, 256, 128],
         activation: Type[nn.Module] = nn.ELU,
@@ -31,9 +37,18 @@ class ActorCritic(nn.Module):
     ):
         super().__init__()
 
+        # Store sub-modules
+        self.estimator = estimator
+        self.dreamer = dreamer
+        self.horizon = horizon
+        self.num_actor_obs = num_actor_obs
+
+        # Calculate total actor input: obs + velocity(3) + dreams(horizon * obs_dim)
+        total_actor_input_dim = num_actor_obs + 3 + (horizon * num_actor_obs)
+
         # Build actor MLP (outputs action mean)
         self.actor = self._build_mlp(
-            input_dim=num_actor_obs,
+            input_dim=total_actor_input_dim,
             output_dim=num_actions,
             hidden_dims=actor_hidden_dims,
             activation=activation,
@@ -54,6 +69,19 @@ class ActorCritic(nn.Module):
 
         # Apply weight initialization
         self._init_weights()
+
+    def _get_actor_input(
+        self, obs: torch.Tensor, obs_history: torch.Tensor, detach: bool = True
+    ) -> torch.Tensor:
+        """Construct full actor input: [obs, velocity_estimate, dreams]."""
+        velocity = self.estimator(obs_history)
+        dreams = self.dreamer.generate_dreams(obs, self.horizon)
+
+        if detach:
+            velocity = velocity.detach()
+            dreams = dreams.detach()
+
+        return torch.cat([obs, velocity, dreams], dim=-1)
 
     def _build_mlp(
         self,
@@ -90,24 +118,28 @@ class ActorCritic(nn.Module):
         nn.init.orthogonal_(self.critic[-1].weight, gain=0.01)
         nn.init.constant_(self.critic[-1].bias, 0.0)
 
-    def act(self, obs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def act(self, obs: torch.Tensor, obs_history: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Stochastic action selection for training.
         Returns sampled action and its log probability.
         """
-        mean = self.actor(obs)
+        actor_input = self._get_actor_input(obs, obs_history, detach=True)
+        mean = self.actor(actor_input)
         std = self.log_std.exp()
         distribution = Normal(mean, std)
         action = distribution.sample()
         log_prob = distribution.log_prob(action).sum(dim=-1, keepdim=True)
         return action, log_prob
 
-    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def evaluate_actions(
+        self, obs: torch.Tensor, obs_history: torch.Tensor, actions: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Evaluate log probabilities and entropy of given actions under current policy.
         Used for PPO loss computation.
         """
-        mean = self.actor(obs)
+        actor_input = self._get_actor_input(obs, obs_history, detach=True)
+        mean = self.actor(actor_input)
         std = self.log_std.exp()
         distribution = Normal(mean, std)
         log_prob = distribution.log_prob(actions).sum(dim=-1, keepdim=True)
@@ -119,6 +151,7 @@ class ActorCritic(nn.Module):
         """Compute value estimate from privileged observations."""
         return self.critic(critic_obs)
 
-    def act_inference(self, obs: torch.Tensor) -> torch.Tensor:
+    def act_inference(self, obs: torch.Tensor, obs_history: torch.Tensor) -> torch.Tensor:
         """Deterministic action selection for deployment (returns mean)."""
-        return self.actor(obs)
+        actor_input = self._get_actor_input(obs, obs_history, detach=True)
+        return self.actor(actor_input)
