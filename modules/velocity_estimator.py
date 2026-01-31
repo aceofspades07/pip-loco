@@ -1,6 +1,8 @@
 """
-Velocity Estimator Module for PIP-Loco
-Standalone TCN-based network for estimating robot body velocity from proprioceptive history.
+Velocity Estimator for PIP-Loco.
+Standalone TCN regressor for body linear velocity.
+Input: (Batch, History_Length, Input_Dim). Output: (Batch, 3).
+Dims swapped to (B, C, L); features flattened then mapped by MLP.
 """
 
 import torch
@@ -10,21 +12,14 @@ from typing import List
 
 class VelocityEstimator(nn.Module):
     """
-    Temporal Convolutional Network (TCN) for estimating robot body linear velocity.
+    TCN for estimating body linear velocity from proprioceptive history.
     
-    Architecture:
-        - TCN Backbone: 3x Conv1d layers (48 -> 128 -> 64 -> 32) with ReLU + BatchNorm
-        - MLP Head: Flatten -> Linear(flatten_dim, 128) -> ReLU -> Linear(128, 3)
+    Backbone: 3×Conv1d with ReLU+BatchNorm (48→128→64→32), stride=1, padding=1
+    preserves temporal length. Head: Flatten (last_channels×history_length)
+    → Linear(128) → ReLU → Linear(3).
     
-    Input:
-        x: torch.Tensor of shape (Batch, History_Length, Input_Dim)
-           - Batch: variable batch size
-           - History_Length: temporal window (default 50 steps = 1.0s @ 50Hz)
-           - Input_Dim: proprioceptive features (default 48 channels)
-    
-    Output:
-        velocity: torch.Tensor of shape (Batch, 3)
-                  Estimated body linear velocity [v_x, v_y, v_z]
+    Input: torch.Tensor (Batch, History_Length, Input_Dim).
+    Output: torch.Tensor (Batch, 3) as [v_x, v_y, v_z].
     """
     
     def __init__(
@@ -44,7 +39,7 @@ class VelocityEstimator(nn.Module):
         self.hidden_dims = hidden_dims
         self.output_dim = output_dim
         
-        # Build TCN backbone
+        # TCN backbone: Conv → ReLU → BN blocks, time preserved
         conv_layers = []
         in_channels = input_dim
         
@@ -58,10 +53,10 @@ class VelocityEstimator(nn.Module):
         
         self.tcn = nn.Sequential(*conv_layers)
         
-        # Dynamically calculate flattened dimension
+        # Flatten dimension: channels × temporal length
         flatten_dim = hidden_dims[-1] * history_length
         
-        # Build MLP head
+        # MLP head for regression
         self.mlp = nn.Sequential(
             nn.Linear(flatten_dim, 128),
             nn.ReLU(),
@@ -78,16 +73,14 @@ class VelocityEstimator(nn.Module):
         Returns:
             Estimated velocity tensor of shape (Batch, 3)
         """
-        # Transpose: (Batch, Length, Channels) -> (Batch, Channels, Length)
+        # Swap dims for Conv1d: (B, L, C) → (B, C, L)
         x = x.permute(0, 2, 1)
         
-        # TCN feature extraction
         x = self.tcn(x)
         
-        # Flatten: (Batch, Channels, Length) -> (Batch, Channels * Length)
+        # Flatten temporal features for the MLP
         x = x.flatten(start_dim=1)
         
-        # MLP regression head
         velocity = self.mlp(x)
         
         return velocity
