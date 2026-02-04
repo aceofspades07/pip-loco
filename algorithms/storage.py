@@ -34,7 +34,7 @@ class RolloutStorage:
 
         self.step = 0
 
-        # --- Standard PPO Buffers ---
+        # Standard PPO Buffers
         self.obs = torch.zeros(
             num_transitions_per_env, num_envs, obs_shape[0],
             dtype=torch.float32, device=self.device
