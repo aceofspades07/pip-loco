@@ -145,6 +145,7 @@ class HybridTrainer:
                 value_pred = self.actor_critic.evaluate(privileged_obs)
                 
                 # Importance sampling ratio: pi_new(a|s) / pi_old(a|s)
+                log_probs = log_probs.view(-1, 1) 
                 ratio = torch.exp(log_probs - actions_log_probs)
                 
                 # Clipped surrogate objective prevents destructively large policy updates
