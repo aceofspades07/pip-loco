@@ -33,6 +33,7 @@ class HybridTrainer:
         clip_param: float = 0.2,
         entropy_coef: float = 0.01,
         value_loss_coef: float = 0.5,
+        max_grad_norm: float = 1.0,
     ):
         self.actor_critic = actor_critic
         self.device = device
@@ -45,6 +46,7 @@ class HybridTrainer:
         self.clip_param = clip_param
         self.entropy_coef = entropy_coef
         self.value_loss_coef = value_loss_coef
+        self.max_grad_norm = max_grad_norm
         
         # Three separate optimizers enforce gradient isolation between modules
         self.optimizer_est = optim.Adam(
@@ -82,6 +84,7 @@ class HybridTrainer:
         total_policy_loss = 0.0
         total_value_loss = 0.0
         total_entropy_loss = 0.0
+        total_kl = 0.0
         num_updates = 0
         
         for epoch in range(self.num_epochs):
@@ -148,6 +151,9 @@ class HybridTrainer:
                 log_probs = log_probs.view(-1, 1) 
                 ratio = torch.exp(log_probs - actions_log_probs)
                 
+                # Approximate KL divergence to monitor policy stability
+                approx_kl = 0.5 * ((actions_log_probs - log_probs).pow(2).mean())
+                
                 # Clipped surrogate objective prevents destructively large policy updates
                 surr1 = -advantages * ratio
                 surr2 = -advantages * torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
@@ -158,6 +164,11 @@ class HybridTrainer:
                 
                 self.optimizer_ppo.zero_grad()
                 total_loss.backward()
+                
+                # Gradient clipping to prevent exploding gradients and policy collapse
+                nn.utils.clip_grad_norm_(self.actor_critic.actor.parameters(), self.max_grad_norm)
+                nn.utils.clip_grad_norm_(self.actor_critic.critic.parameters(), self.max_grad_norm)
+                
                 self.optimizer_ppo.step()
                 
                 total_vel_loss += loss_est.item()
@@ -165,6 +176,7 @@ class HybridTrainer:
                 total_policy_loss += policy_loss.item()
                 total_value_loss += value_loss.item()
                 total_entropy_loss += entropy.item()
+                total_kl += approx_kl.item()
                 num_updates += 1
         
         mean_vel_loss = total_vel_loss / num_updates
@@ -172,6 +184,7 @@ class HybridTrainer:
         mean_policy_loss = total_policy_loss / num_updates
         mean_value_loss = total_value_loss / num_updates
         mean_entropy = total_entropy_loss / num_updates
+        mean_kl = total_kl / num_updates
         
         return {
             "loss/velocity": mean_vel_loss,
@@ -179,4 +192,5 @@ class HybridTrainer:
             "loss/policy": mean_policy_loss,
             "loss/value": mean_value_loss,
             "loss/entropy": mean_entropy,
+            "loss/kl": mean_kl,
         }
