@@ -70,12 +70,15 @@ def print_section(title: str) -> None:
 # MOCK CONFIGURATION BUILDER
 # ============================================================================
 
-def create_mock_config() -> "MockGO2Cfg":
+def create_mock_config():
     """
     Create a fully mocked GO2Cfg object for testing.
     
     This function constructs a minimal but complete configuration that allows
     GenesisWrapper to initialize without requiring the full legged_gym imports.
+    
+    Returns:
+        MockGO2Cfg: A mock configuration object with all required nested classes.
     """
     
     class MockConfig:
