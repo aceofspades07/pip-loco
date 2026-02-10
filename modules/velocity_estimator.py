@@ -24,7 +24,7 @@ class VelocityEstimator(nn.Module):
     
     def __init__(
         self,
-        input_dim: int = 48,
+        input_dim: int = 45,
         history_length: int = 50,
         hidden_dims: List[int] = None,
         output_dim: int = 3
