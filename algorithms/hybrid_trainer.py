@@ -77,7 +77,6 @@ class HybridTrainer:
         Returns:
             dict: Dictionary containing mean losses for logging.
         """
-        x = 0
         self.actor_critic.train()
         
         total_vel_loss = 0.0
@@ -139,8 +138,6 @@ class HybridTrainer:
                 loss_cloning = F.mse_loss(pred_actions, actions)
                 loss_distillation = F.mse_loss(pred_values, values)
                 loss_dream = loss_dynamics + loss_reward + loss_cloning + loss_distillation
-
-                x += 1
                 
                 self.optimizer_dream.zero_grad()
                 loss_dream.backward()
@@ -189,8 +186,6 @@ class HybridTrainer:
         mean_value_loss = total_value_loss / num_updates
         mean_entropy = total_entropy_loss / num_updates
         mean_kl = total_kl / num_updates
-        
-        print(f"X = {x}")
 
         return {
             "loss/velocity": mean_vel_loss,
