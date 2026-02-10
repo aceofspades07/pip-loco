@@ -33,7 +33,7 @@ class PIPGO2Cfg(GO2Cfg):
     class env(GO2Cfg.env):
         """Environment dimensions and episode settings."""
         # Used by: GenesisWrapper, RolloutStorage
-        num_envs = 4096                    # Number of parallel environments
+        num_envs = 256                     # Number of parallel environments (adjust based on GPU memory)
         num_observations = 45              # Blind proprioceptive obs (actor input)
         num_privileged_obs = None           # Will be calculated by GenesisWrapper based on terrain config
         num_actions = 12                   # Joint position targets
@@ -101,7 +101,7 @@ class PIPGO2Cfg(GO2Cfg):
     class asset(GO2Cfg.asset):
         """Robot URDF and collision settings."""
         name = "go2"
-        file = '/home/pip_loco/robot_assets/resources/robots/go2/urdf/go2.urdf'
+        file = '/home/karan/pip_loco/genesis_lr/resources/robots/go2/urdf/go2.urdf'
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base"]
@@ -133,7 +133,7 @@ class PIPGO2Cfg(GO2Cfg):
             -0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5
         ]  # 11 points
         # Total height scan dim: 17 * 11 = 187 points
-        measure_heights = True
+        measure_heights = False  # Disabled for blind locomotion on flat plane
         
         # Curriculum settings
         curriculum = False
@@ -480,8 +480,8 @@ def print_config_summary():
     
     print("\n[Training]")
     print(f"  lr_encoder:          {train_cfg.algorithm.lr_encoder}")
-    print(f"  lr_actor:            {train_cfg.algorithm.learning_rate_actor}")
-    print(f"  lr_critic:           {train_cfg.algorithm.learning_rate_critic}")
+    print(f"  lr_actor:            {train_cfg.algorithm.lr_actor}")
+    print(f"  lr_critic:           {train_cfg.algorithm.lr_critic}")
     print(f"  clip_param:          {train_cfg.algorithm.clip_param}")
     print(f"  max_grad_norm:       {train_cfg.algorithm.max_grad_norm}")
     print(f"  num_epochs:          {train_cfg.algorithm.num_learning_epochs}")
