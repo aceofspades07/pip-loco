@@ -285,6 +285,7 @@ def train() -> None:
         iter_time = time.time() - iter_start
         fps = int(num_steps_per_env * env_cfg.env.num_envs / iter_time)
 
+        mean_reward = np.mean(ep_reward_buf) if len(ep_reward_buf) > 0 else 0.0
 
         writer.add_scalar("Perf/FPS", fps, iteration)
         writer.add_scalar("Train/MeanReward", mean_reward, iteration)
@@ -298,8 +299,10 @@ def train() -> None:
         writer.add_scalar("Loss/Entropy", losses['loss/entropy'], iteration)
         writer.add_scalar("Loss/KL", losses['loss/kl'], iteration)
 
+        
+
         if iteration % 10 == 0:
-            mean_reward = np.mean(ep_reward_buf) if len(ep_reward_buf) > 0 else 0.0
+            
             elapsed = time.time() - start_time
             print(
                 f"Iter {iteration:5d}/{max_iterations} | "
