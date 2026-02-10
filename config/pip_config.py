@@ -357,8 +357,8 @@ class PIPTrainCfg(GO2CfgPPO):
         # Learning rates (three separate optimizers)
         # Used by: HybridTrainer (optimizer_est, optimizer_dream, optimizer_ppo)
         lr_encoder = 1e-4                  # Estimator learning rate
-        lr_actor = 3e-4         # Actor learning rate
-        lr_critic = 3e-4        # Critic learning rate
+        lr_actor = 1e-4         # Actor learning rate
+        lr_critic = 1e-4        # Critic learning rate
         
         # PPO hyperparameters
         # Used by: HybridTrainer (update method)
