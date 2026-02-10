@@ -6,7 +6,7 @@ if SIMULATOR == "genesis":
     from PIL import Image as im
     import cv2 as cv
 elif SIMULATOR == "isaacgym":
-    from isaacgym import gymtorch, gymapi, gymutil
+    from isaacgym import gymtorch, gymapi, gymutil # type: ignore
     # from isaacgym.torch_utils import *
 import torch
 import numpy as np
