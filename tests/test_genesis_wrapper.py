@@ -887,6 +887,283 @@ def test_hardware_limits(env) -> bool:
         return False
 
 
+def test_gravity_dynamics(env, num_steps: int = 30) -> bool:
+    """
+    Test 9: The "Gravity" Check (CRITICAL)
+    
+    Verifies that projected_gravity actually changes when the robot tilts.
+    If projected_gravity is hardcoded or static, the robot will NEVER learn balance.
+    
+    Method:
+    1. Record initial projected_gravity
+    2. Apply asymmetric actions to induce tilting
+    3. Verify projected_gravity changes significantly
+    """
+    print_section("TEST 9: The 'Gravity' Check")
+    
+    num_envs = env.num_envs
+    num_actions = env.num_actions
+    
+    print("   Verifying projected_gravity responds to robot orientation...")
+    print("   If this fails, the robot cannot learn balance!")
+    
+    try:
+        # Reset to clean state
+        env.reset()
+        
+        # Run a few steps to stabilize
+        for _ in range(5):
+            actions = torch.zeros(num_envs, num_actions, dtype=torch.float32, device=env.device)
+            env.step(actions)
+        
+        # Record initial projected_gravity
+        initial_gravity = env.simulator.projected_gravity.clone()
+        print(f"   Initial projected_gravity (env 0): [{initial_gravity[0, 0]:.4f}, {initial_gravity[0, 1]:.4f}, {initial_gravity[0, 2]:.4f}]")
+        
+        # For a standing robot, gravity should be approximately [0, 0, -1] (pointing down in body frame)
+        # Check that initial gravity makes physical sense
+        initial_z = initial_gravity[:, 2].mean().item()
+        if initial_z > -0.5:
+            print(f"{Colors.YELLOW}[WARN]{Colors.RESET} Initial gravity Z = {initial_z:.4f} (expected ~ -1.0 for upright robot)")
+        
+        # Store gravity history to track changes
+        gravity_history = [initial_gravity.clone()]
+        
+        # Apply asymmetric actions to induce tilting
+        # Different actions on left vs right legs will cause roll
+        # Different actions on front vs back will cause pitch
+        print("   Applying asymmetric actions to induce tilting...")
+        
+        for step in range(num_steps):
+            # Create tilting actions: push front legs forward, back legs backward
+            actions = torch.zeros(num_envs, num_actions, dtype=torch.float32, device=env.device)
+            
+            # Go2 joint order: FR_hip, FR_thigh, FR_calf, FL_hip, FL_thigh, FL_calf,
+            #                  RR_hip, RR_thigh, RR_calf, RL_hip, RL_thigh, RL_calf
+            # Apply asymmetric thigh actions to induce pitch
+            actions[:, 1] = 1.5   # FR_thigh forward
+            actions[:, 4] = 1.5   # FL_thigh forward
+            actions[:, 7] = -1.5  # RR_thigh backward
+            actions[:, 10] = -1.5 # RL_thigh backward
+            
+            # Also add some roll-inducing actions
+            actions[:, 0] = 0.5   # FR_hip
+            actions[:, 3] = -0.5  # FL_hip (opposite direction for roll)
+            
+            env.step(actions)
+            gravity_history.append(env.simulator.projected_gravity.clone())
+        
+        # Analyze gravity changes
+        final_gravity = env.simulator.projected_gravity.clone()
+        print(f"   Final projected_gravity (env 0): [{final_gravity[0, 0]:.4f}, {final_gravity[0, 1]:.4f}, {final_gravity[0, 2]:.4f}]")
+        
+        # Calculate maximum deviation from initial gravity
+        gravity_tensor = torch.stack(gravity_history, dim=0)  # [num_steps+1, num_envs, 3]
+        
+        # Compute deviation per step
+        deviations = (gravity_tensor - initial_gravity.unsqueeze(0)).abs()
+        max_deviation = deviations.max().item()
+        mean_deviation = deviations.mean().item()
+        
+        # Check X and Y components (these should change with pitch and roll)
+        max_x_deviation = deviations[:, :, 0].max().item()
+        max_y_deviation = deviations[:, :, 1].max().item()
+        max_z_deviation = deviations[:, :, 2].max().item()
+        
+        print(f"\n   Gravity deviation analysis:")
+        print(f"      Max X deviation (roll):  {max_x_deviation:.6f}")
+        print(f"      Max Y deviation (pitch): {max_y_deviation:.6f}")
+        print(f"      Max Z deviation:         {max_z_deviation:.6f}")
+        print(f"      Overall max deviation:   {max_deviation:.6f}")
+        print(f"      Mean deviation:          {mean_deviation:.6f}")
+        
+        # CRITICAL CHECK: Gravity must change when robot tilts
+        MIN_GRAVITY_CHANGE = 0.01  # At least 1% change expected
+        
+        if max_deviation < MIN_GRAVITY_CHANGE:
+            print_fail(
+                "Gravity Dynamics",
+                "projected_gravity is STATIC! Robot tilted but gravity didn't change.",
+                f"Max deviation > {MIN_GRAVITY_CHANGE}",
+                f"Max deviation = {max_deviation:.6f}"
+            )
+            print(f"       {Colors.RED}CRITICAL: The robot will NEVER learn balance with static gravity!{Colors.RESET}")
+            print(f"       Check: Is projected_gravity computed from quat_rotate_inverse(base_quat, global_gravity)?")
+            return False
+        
+        # Check that X or Y component changed (indicating actual tilt)
+        if max_x_deviation < 0.005 and max_y_deviation < 0.005:
+            print(f"{Colors.YELLOW}[WARN]{Colors.RESET} Gravity X/Y components barely changed.")
+            print(f"       The robot may not have tilted significantly during the test.")
+            print(f"       Consider: Are actions being applied correctly?")
+        
+        print_pass("Gravity Dynamics", f"projected_gravity responds to orientation (max_dev={max_deviation:.4f})")
+        
+        # Additional check: Gravity vector should remain unit length
+        gravity_norms = final_gravity.norm(dim=-1)
+        norm_deviation = (gravity_norms - 1.0).abs().max().item()
+        
+        if norm_deviation > 0.01:
+            print(f"{Colors.YELLOW}[WARN]{Colors.RESET} Gravity vector norm deviation: {norm_deviation:.4f}")
+            print(f"       Expected unit vector, got norms: {gravity_norms[:3].tolist()}")
+        else:
+            print_pass("Gravity Normalization", f"Gravity vectors are unit length (norm_dev={norm_deviation:.6f})")
+        
+        return True
+        
+    except Exception as e:
+        print_fail("Gravity Dynamics", f"Exception: {str(e)}")
+        traceback.print_exc()
+        return False
+
+
+def test_zero_action_stability(env, num_steps: int = 100) -> bool:
+    """
+    Test 10: The "Zero Action" Check (CRITICAL)
+    
+    Verifies that when the RL network outputs all zeros, the robot maintains
+    its default standing pose and doesn't collapse.
+    
+    If the robot collapses with zero actions:
+    - action_scale may be wrong
+    - default_dof_pos offset may be incorrect
+    - PD gains may be too weak
+    
+    Success criteria:
+    1. Base height remains above collapse threshold (> 0.2m for Go2)
+    2. Joint positions stay close to default_dof_pos
+    3. Robot doesn't flip over (projected_gravity Z stays negative)
+    """
+    print_section("TEST 10: The 'Zero Action' Check")
+    
+    num_envs = env.num_envs
+    num_actions = env.num_actions
+    
+    print("   Verifying robot stability with zero actions...")
+    print("   If this fails, action_scale or default_dof_pos is likely wrong!")
+    
+    try:
+        # Reset to clean state
+        env.reset()
+        
+        # Get initial state
+        initial_height = env.simulator.base_pos[:, 2].clone()
+        default_dof_pos = env.simulator.default_dof_pos.clone()
+        
+        print(f"   Initial base height (mean): {initial_height.mean().item():.4f} m")
+        print(f"   Default DOF positions shape: {default_dof_pos.shape}")
+        
+        # Track state over time
+        height_history = []
+        dof_deviation_history = []
+        gravity_z_history = []
+        
+        # Run simulation with zero actions
+        print(f"   Running {num_steps} steps with zero actions...")
+        
+        zero_actions = torch.zeros(num_envs, num_actions, dtype=torch.float32, device=env.device)
+        
+        for step in range(num_steps):
+            env.step(zero_actions)
+            
+            # Record state
+            current_height = env.simulator.base_pos[:, 2].mean().item()
+            height_history.append(current_height)
+            
+            # DOF deviation from default
+            dof_pos = env.simulator.dof_pos
+            dof_deviation = (dof_pos - default_dof_pos).abs().mean().item()
+            dof_deviation_history.append(dof_deviation)
+            
+            # Gravity Z component (should stay negative if upright)
+            gravity_z = env.simulator.projected_gravity[:, 2].mean().item()
+            gravity_z_history.append(gravity_z)
+            
+            if (step + 1) % 25 == 0:
+                print(f"      Step {step+1}: height={current_height:.4f}m, dof_dev={dof_deviation:.4f}, grav_z={gravity_z:.4f}")
+        
+        # Analyze results
+        final_height = height_history[-1]
+        min_height = min(height_history)
+        final_gravity_z = gravity_z_history[-1]
+        max_dof_deviation = max(dof_deviation_history)
+        
+        print(f"\n   Zero-action stability analysis:")
+        print(f"      Initial height:     {initial_height.mean().item():.4f} m")
+        print(f"      Final height:       {final_height:.4f} m")
+        print(f"      Minimum height:     {min_height:.4f} m")
+        print(f"      Max DOF deviation:  {max_dof_deviation:.4f} rad")
+        print(f"      Final gravity Z:    {final_gravity_z:.4f}")
+        
+        all_passed = True
+        
+        # Check 1: Robot didn't collapse (height threshold for Go2 ~0.2m)
+        COLLAPSE_HEIGHT_THRESHOLD = 0.2
+        if min_height < COLLAPSE_HEIGHT_THRESHOLD:
+            print_fail(
+                "Collapse Detection",
+                f"Robot collapsed! Height dropped below {COLLAPSE_HEIGHT_THRESHOLD}m",
+                f"Height > {COLLAPSE_HEIGHT_THRESHOLD}m",
+                f"Min height = {min_height:.4f}m"
+            )
+            print(f"       {Colors.RED}Check: action_scale, default_dof_pos, or PD gains{Colors.RESET}")
+            all_passed = False
+        else:
+            print_pass("Collapse Detection", f"Robot maintained height (min={min_height:.4f}m)")
+        
+        # Check 2: Robot didn't flip over (gravity Z should be negative)
+        if final_gravity_z > 0:
+            print_fail(
+                "Flip Detection",
+                "Robot flipped over! Gravity Z is positive (upside down)",
+                "Gravity Z < 0",
+                f"Gravity Z = {final_gravity_z:.4f}"
+            )
+            all_passed = False
+        else:
+            print_pass("Flip Detection", f"Robot stayed upright (gravity_z={final_gravity_z:.4f})")
+        
+        # Check 3: Joint positions stayed close to default
+        DOF_DEVIATION_THRESHOLD = 0.5  # 0.5 rad max deviation allowed
+        if max_dof_deviation > DOF_DEVIATION_THRESHOLD:
+            print_fail(
+                "Joint Position Stability",
+                f"Joints deviated too much from default pose",
+                f"Max deviation < {DOF_DEVIATION_THRESHOLD} rad",
+                f"Max deviation = {max_dof_deviation:.4f} rad"
+            )
+            print(f"       {Colors.RED}Check: PD gains may be too weak or action_scale too large{Colors.RESET}")
+            all_passed = False
+        else:
+            print_pass("Joint Position Stability", f"Joints stayed near default (max_dev={max_dof_deviation:.4f} rad)")
+        
+        # Check 4: Height didn't drop significantly
+        height_drop = initial_height.mean().item() - final_height
+        HEIGHT_DROP_THRESHOLD = 0.1  # 10cm max drop allowed
+        
+        if height_drop > HEIGHT_DROP_THRESHOLD:
+            print(f"{Colors.YELLOW}[WARN]{Colors.RESET} Robot height dropped by {height_drop:.4f}m")
+            print(f"       This may indicate settling, weak PD gains, or incorrect default pose")
+        else:
+            print_pass("Height Stability", f"Height drop = {height_drop:.4f}m (threshold={HEIGHT_DROP_THRESHOLD}m)")
+        
+        # Check 5: Verify action_scale interpretation
+        print("\n   Verifying action interpretation...")
+        action_scale = env.cfg.control.action_scale
+        print(f"      action_scale = {action_scale}")
+        print(f"      Zero action → target_pos = default_dof_pos + 0 * action_scale = default_dof_pos")
+        
+        if all_passed:
+            print_pass("Zero Action Stability", "Robot stands stable with zero actions")
+        
+        return all_passed
+        
+    except Exception as e:
+        print_fail("Zero Action Stability", f"Exception: {str(e)}")
+        traceback.print_exc()
+        return False
+
+
 # ============================================================================
 # MAIN TEST RUNNER
 # ============================================================================
@@ -945,6 +1222,12 @@ def main():
         
         # Test 8: Hardware Limits
         results['hardware_limits'] = test_hardware_limits(env)
+        
+        # Test 9: Gravity Dynamics (CRITICAL)
+        results['gravity_dynamics'] = test_gravity_dynamics(env)
+        
+        # Test 10: Zero Action Stability (CRITICAL)
+        results['zero_action_stability'] = test_zero_action_stability(env)
         
     except RuntimeError as e:
         print(f"\n{Colors.RED}{Colors.BOLD}CRITICAL ERROR: {str(e)}{Colors.RESET}")
