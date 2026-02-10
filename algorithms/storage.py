@@ -166,7 +166,6 @@ class RolloutStorage:
     def generate_minibatch(
         self,
         num_mini_batches: int,
-        num_epochs: int,
     ) -> Generator[
         Tuple[
             torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
@@ -178,8 +177,9 @@ class RolloutStorage:
         None,
     ]:
         """
-        Yields shuffled mini-batches for training.
+        Yields shuffled mini-batches for a single epoch of training.
         Flattens (num_transitions, num_envs) -> (total_samples) for all buffers.
+        The caller is responsible for iterating over multiple epochs.
         """
         assert self.step == self.num_transitions_per_env, "Buffer not full"
 
@@ -204,29 +204,28 @@ class RolloutStorage:
         mu_flat = self.mu.view(total_samples, -1)
         sigma_flat = self.sigma.view(total_samples, -1)
 
-        for _ in range(num_epochs):
-            # Shuffle indices for each epoch
-            indices = torch.randperm(total_samples, device=self.device)
+        # Shuffle indices for this epoch
+        indices = torch.randperm(total_samples, device=self.device)
 
-            for start in range(0, total_samples, batch_size):
-                end = start + batch_size
-                batch_indices = indices[start:end]
+        for start in range(0, total_samples, batch_size):
+            end = start + batch_size
+            batch_indices = indices[start:end]
 
-                yield (
-                    obs_flat[batch_indices],
-                    privileged_obs_flat[batch_indices],
-                    obs_history_flat[batch_indices],
-                    actions_flat[batch_indices],
-                    next_obs_flat[batch_indices],
-                    rewards_flat[batch_indices],
-                    returns_flat[batch_indices],
-                    dones_flat[batch_indices],
-                    values_flat[batch_indices],
-                    actions_log_probs_flat[batch_indices],
-                    advantages_flat[batch_indices],
-                    mu_flat[batch_indices],
-                    sigma_flat[batch_indices],
-                )
+            yield (
+                obs_flat[batch_indices],
+                privileged_obs_flat[batch_indices],
+                obs_history_flat[batch_indices],
+                actions_flat[batch_indices],
+                next_obs_flat[batch_indices],
+                rewards_flat[batch_indices],
+                returns_flat[batch_indices],
+                dones_flat[batch_indices],
+                values_flat[batch_indices],
+                actions_log_probs_flat[batch_indices],
+                advantages_flat[batch_indices],
+                mu_flat[batch_indices],
+                sigma_flat[batch_indices],
+            )
 
     def clear(self) -> None:
         """Resets the step counter for the next rollout collection."""
