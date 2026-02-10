@@ -13,6 +13,8 @@ Architecture Overview:
 Author: PIP-Loco Team
 """
 
+from csv import writer
+from torch.utils.tensorboard import SummaryWriter
 import os
 import sys
 import time
@@ -72,6 +74,9 @@ def train() -> None:
         PROJECT_ROOT, "logs", f"{train_cfg.runner.experiment_name}_{timestamp}"
     )
     os.makedirs(log_dir, exist_ok=True)
+
+    writer = SummaryWriter(log_dir=log_dir)
+
     print(f"[PIP-Loco] Logging to: {log_dir}")
 
     # ==================================================================
@@ -280,6 +285,19 @@ def train() -> None:
         iter_time = time.time() - iter_start
         fps = int(num_steps_per_env * env_cfg.env.num_envs / iter_time)
 
+
+        writer.add_scalar("Perf/FPS", fps, iteration)
+        writer.add_scalar("Train/MeanReward", mean_reward, iteration)
+        writer.add_scalar("Train/IterTime", iter_time, iteration)
+        
+        # Log losses
+        writer.add_scalar("Loss/Velocity", losses['loss/velocity'], iteration)
+        writer.add_scalar("Loss/Dreamer", losses['loss/dreamer'], iteration)
+        writer.add_scalar("Loss/Policy", losses['loss/policy'], iteration)
+        writer.add_scalar("Loss/Value", losses['loss/value'], iteration)
+        writer.add_scalar("Loss/Entropy", losses['loss/entropy'], iteration)
+        writer.add_scalar("Loss/KL", losses['loss/kl'], iteration)
+
         if iteration % 10 == 0:
             mean_reward = np.mean(ep_reward_buf) if len(ep_reward_buf) > 0 else 0.0
             elapsed = time.time() - start_time
@@ -334,6 +352,7 @@ def train() -> None:
     print(f"  Final mean reward: {mean_reward:.2f}")
     print(f"  Wall-clock time : {elapsed_total / 3600:.2f} h")
     print(f"  Model saved to  : {final_path}")
+    writer.close()
     print("=" * 70)
 
 
