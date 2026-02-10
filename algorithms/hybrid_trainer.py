@@ -89,7 +89,7 @@ class HybridTrainer:
         num_updates = 0
         
         for epoch in range(self.num_epochs):
-            minibatch_generator = storage.generate_minibatch(self.mini_batch_size, self.num_epochs)
+            minibatch_generator = storage.generate_minibatch(self.mini_batch_size)
             
             for minibatch in minibatch_generator:
                 (
