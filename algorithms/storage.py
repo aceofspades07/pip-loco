@@ -147,7 +147,7 @@ class RolloutStorage:
             else:
                 next_values = self.values[step + 1]
 
-            # TD residual: r_t + γ * V(s_{t+1}) * (1 - done) - V(s_t)
+            # TD residual: r_t + gamma * V(s_{t+1}) * (1 - done) - V(s_t)
             delta = (
                 self.rewards[step]
                 + gamma * next_values * (1 - self.dones[step])
