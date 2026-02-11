@@ -160,7 +160,7 @@ class PIPGO2Cfg(GO2Cfg):
         """Domain randomization for sim-to-real transfer."""
         # Friction randomization
         randomize_friction = True
-        friction_range = [0.15, 1.25]
+        friction_range = [0.25, 1.25]
         
         # Mass randomization
         randomize_base_mass = True
