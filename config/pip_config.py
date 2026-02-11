@@ -33,7 +33,7 @@ class PIPGO2Cfg(GO2Cfg):
     class env(GO2Cfg.env):
         """Environment dimensions and episode settings."""
         # Used by: GenesisWrapper, RolloutStorage
-        num_envs = 2048                     # Number of parallel environments (adjust based on GPU memory)
+        num_envs = 1024                     # Number of parallel environments (adjust based on GPU memory)
         num_observations = 45              # Blind proprioceptive obs (actor input)
         num_privileged_obs = None           # Will be calculated by GenesisWrapper based on terrain config
         num_actions = 12                   # Joint position targets
@@ -363,13 +363,13 @@ class PIPTrainCfg(GO2CfgPPO):
         # PPO hyperparameters
         # Used by: HybridTrainer (update method)
         clip_param = 0.2                   # PPO clipping parameter
-        entropy_coef = 0.01                # Entropy bonus coefficient
+        entropy_coef = 0.005                # Entropy bonus coefficient
         value_loss_coef = 0.5              # Value function loss weight
         
         # Training schedule
         # Used by: HybridTrainer (num_epochs)
         num_learning_epochs = 5            # PPO epochs per update
-        num_mini_batches = 16              # Mini-batches per epoch
+        num_mini_batches = 4              # Mini-batches per epoch
         
         # Gradient clipping
         # Used by: HybridTrainer (gradient clipping)
@@ -402,7 +402,7 @@ class PIPTrainCfg(GO2CfgPPO):
         num_steps_per_env = 24             # Steps collected before update
         
         # Training duration
-        max_iterations = 10000              # Total training iterations
+        max_iterations = 5000              # Total training iterations
         
         # Checkpointing
         save_interval = 200                # Save model every N iterations
