@@ -33,7 +33,7 @@ class PIPGO2Cfg(GO2Cfg):
     class env(GO2Cfg.env):
         """Environment dimensions and episode settings."""
         # Used by: GenesisWrapper, RolloutStorage
-        num_envs = 256                     # Number of parallel environments (adjust based on GPU memory)
+        num_envs = 2048                     # Number of parallel environments (adjust based on GPU memory)
         num_observations = 45              # Blind proprioceptive obs (actor input)
         num_privileged_obs = None           # Will be calculated by GenesisWrapper based on terrain config
         num_actions = 12                   # Joint position targets
@@ -160,29 +160,29 @@ class PIPGO2Cfg(GO2Cfg):
         """Domain randomization for sim-to-real transfer."""
         # Friction randomization
         randomize_friction = True
-        friction_range = [0.5, 1.25]
+        friction_range = [0.15, 1.25]
         
         # Mass randomization
         randomize_base_mass = True
-        added_mass_range = [-1.0, 1.0]     # [kg]
+        added_mass_range = [-2.0, 3.0]     # [kg]
         
         # External perturbations
         push_robots = True
-        push_interval_s = 15               # Push interval [s]
+        push_interval_s = 5.0               # Push interval [s]
         max_push_vel_xy = 1.0              # Max push velocity [m/s]
         
         # Center of mass displacement
         randomize_com_displacement = True
-        com_pos_x_range = [-0.01, 0.01]    # [m]
-        com_pos_y_range = [-0.01, 0.01]    # [m]
-        com_pos_z_range = [-0.01, 0.01]    # [m]
+        com_pos_x_range = [-0.05, 0.05]    # [m]
+        com_pos_y_range = [-0.05, 0.05]    # [m]
+        com_pos_z_range = [-0.05, 0.05]    # [m]
         
         # Control delay (disabled by default for stability)
-        randomize_ctrl_delay = False
-        ctrl_delay_step_range = [0, 1]
+        randomize_ctrl_delay = True
+        ctrl_delay_step_range = [0, 2]
         
         # PD gain randomization
-        randomize_pd_gain = False
+        randomize_pd_gain = True
         kp_range = [0.8, 1.2]
         kd_range = [0.8, 1.2]
 
@@ -274,7 +274,7 @@ class PIPGO2Cfg(GO2Cfg):
         class scales:
             """Per-observation noise magnitudes."""
             dof_pos = 0.01                 # Joint position noise [rad]
-            dof_vel = 0.5                  # Joint velocity noise [rad/s]
+            dof_vel = 1.5                  # Joint velocity noise [rad/s]
             lin_vel = 0.1                  # Linear velocity noise [m/s]
             ang_vel = 0.2                  # Angular velocity noise [rad/s]
             gravity = 0.05                 # Gravity projection noise
@@ -402,7 +402,7 @@ class PIPTrainCfg(GO2CfgPPO):
         num_steps_per_env = 24             # Steps collected before update
         
         # Training duration
-        max_iterations = 3000              # Total training iterations
+        max_iterations = 10000              # Total training iterations
         
         # Checkpointing
         save_interval = 200                # Save model every N iterations
