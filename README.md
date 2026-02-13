@@ -33,7 +33,7 @@ pip install torch==2.8.0+cu126 torchvision==0.23.0+cu126 --index-url https://dow
 pip install genesis-world==0.3.10
 
 # Install remaining dependencies
-pip install numpy==2.1.2 pandas scipy matplotlib tensorboard wandb tqdm libigl==2.5.1
+pip install numpy==2.1.2 pandas scipy matplotlib tensorboard wandb tqdm pygame libigl==2.5.1
 
 # Install local packages in editable mode
 pip install -e genesis_lr/
