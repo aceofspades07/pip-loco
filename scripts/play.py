@@ -310,8 +310,13 @@ def play():
     env_cfg.env.num_envs = 2
     env_cfg.noise.add_noise = False  # Disable observation noise for cleaner inference
     
-    # CRITICAL: rendered_envs_idx must match num_envs to avoid Genesis visualizer indexing bug
-    env_cfg.viewer.rendered_envs_idx = list(range(env_cfg.env.num_envs))
+    # Only render the first robot (index 0) - hides the unused second robot
+    env_cfg.viewer.rendered_envs_idx = [0]
+    
+    # Camera position: place camera behind and above the robot, looking at spawn point
+    # Robot spawns at init_state.pos = [0, 0, 0.42]
+    env_cfg.viewer.pos = [2.0, 0.0, 1.0]      # 2m behind, 1m high
+    env_cfg.viewer.lookat = [0.0, 0.0, 0.3]   # Look at robot's body height
     
     # ==================================================================
     # 2. INITIALIZE GENESIS
