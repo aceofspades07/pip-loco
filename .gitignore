@@ -6,6 +6,7 @@ __pycache__/
 # --- Project Specifics ---
 # Ignore the logs folder inside genesis_lr so your repo doesn't get huge
 genesis_lr/logs/
+genesis_lr/resources/images
 
 # Ignore generated plots/images if you don't want them tracked
 #*.png
