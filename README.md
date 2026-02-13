@@ -19,8 +19,8 @@ A fast, robust, blind RL-based locomotion policy for the Unitree Go2 quadruped. 
 
 ```bash
 # Clone the repository
-git clone https://github.com/aceofspades07/pip_loco.git
-cd pip_loco
+git clone https://github.com/aceofspades07/pip-loco.git
+cd pip-loco
 
 # Create and activate conda environment
 conda create -n pip_genesis python=3.10 -y

@@ -45,7 +45,7 @@ from modules.pip_actor_critic import ActorCritic
 # =============================================================================
 
 # Model checkpoint path (update this to your trained model)
-MODEL_PATH = "/home/karan/pip_loco/logs/pip_go2_20260211_223927/model_final.pt"
+MODEL_PATH = "/home/karan/pip-loco/logs/pip_go2_20260211_223927/model_final.pt"
 
 # Velocity command limits
 VEL_X_MAX = 1.0      # m/s forward/backward

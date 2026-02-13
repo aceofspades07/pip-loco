@@ -101,7 +101,7 @@ class PIPGO2Cfg(GO2Cfg):
     class asset(GO2Cfg.asset):
         """Robot URDF and collision settings."""
         name = "go2"
-        file = '/home/karan/pip_loco/genesis_lr/resources/robots/go2/urdf/go2.urdf'
+        file = '/home/karan/pip-loco/genesis_lr/resources/robots/go2/urdf/go2.urdf'
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base"]
@@ -409,7 +409,7 @@ class PIPTrainCfg(GO2CfgPPO):
         
         # Experiment tracking
         experiment_name = 'pip_go2'
-        run_name = 'pip_loco_blind'
+        run_name = 'pip-loco_blind'
         
         # Logging
         sync_wandb = True                  # Enable Weights & Biases logging

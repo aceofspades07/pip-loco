@@ -68,7 +68,7 @@ class PIPGO2CfgPPO(GO2CfgPPO):
     """
     
     class runner(GO2CfgPPO.runner):
-        run_name = 'pip_loco_blind'
+        run_name = 'pip-loco_blind'
         experiment_name = 'go2_blind_locomotion'
         max_iterations = 5000     # Total training iterations
         save_interval = 100       # Save model every N iters

@@ -43,7 +43,7 @@ class GO2Cfg( LeggedRobotCfg ):
     class asset( LeggedRobotCfg.asset ):
         # Common
         name = "go2"
-        file = '/home/pip_loco/robot_assets/resources/robots/go2/urdf/go2.urdf'
+        file = '/home/pip-loco/robot_assets/resources/robots/go2/urdf/go2.urdf'
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base"]

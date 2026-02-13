@@ -22,7 +22,7 @@ class Go1RoughCfg(GO2Cfg):
         action_scale = 0.25 
 
     class asset(GO2Cfg.asset):
-        file = os.path.expanduser("~/pip_loco/robot_assets/resources/robots/go1/urdf/go1.urdf")
+        file = os.path.expanduser("~/pip-loco/robot_assets/resources/robots/go1/urdf/go1.urdf")
         name = "go1"
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf"]
