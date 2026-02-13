@@ -63,7 +63,7 @@ Checkpoints are saved to `logs/pip_go2_<timestamp>/`.
 | Component | Description |
 |-----------|-------------|
 | **Asymmetric Actor-Critic** | Actor receives 45-dim blind proprioception (joint pos/vel, IMU, commands). Critic receives privileged simulator data (true velocity, friction, terrain heights). |
-| **TCN Velocity Estimator** | 3-layer Temporal Convolutional Network that regresses body velocity from 50-step observation history—no kinematic assumptions. |
+| **TCN Velocity Estimator** | 3-layer Temporal Convolutional Network that regresses body velocity from 50-step observation history — no kinematic assumptions. |
 | **Dreamer (No-Latent Model)** | 4 independent MLPs (dynamics, reward, policy, value) that predict future states. Generates 5-step imagined rollouts fed to the actor. |
 | **HybridTrainer** | Coordinates three separate optimizers with strict gradient isolation: Estimator (supervised learning), Dreamer (model-based learning), PPO (policy learning). |
 
@@ -139,8 +139,9 @@ This implementation is based on **PIP-Loco** by Shirwatkar et al. (ICRA 2025).
 ```
 
 **Additional Credits:**
-- [Genesis Physics Simulator](https://genesis-embodied-ai.github.io/) — GPU-parallel rigid body simulation
-- [LeggedGym / RSL-RL](https://github.com/leggedrobotics/legged_gym) — Foundational environment wrapper
+- [Genesis Physics Simulator](https://genesis-embodied-ai.github.io/) — GPU-parallel rigid body simulation environment.
+- [LeggedGym-Ex](https://github.com/lupinjia/LeggedGym-Ex) — Foundational environment wrapper (Formerly known as Genesis-LR).
+- [RSL-RL](https://github.com/leggedrobotics/rsl_rl) — A library of simple implementations of learning algorithms for robotics. 
 
 ---
 
