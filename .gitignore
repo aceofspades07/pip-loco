@@ -8,9 +8,9 @@ __pycache__/
 genesis_lr/logs/
 
 # Ignore generated plots/images if you don't want them tracked
-*.png
-*.jpg
-*.gif
+#*.png
+#*.jpg
+#*.gif
 
 # --- System/IDE ---
 .DS_Store
