@@ -21,6 +21,4 @@ genesis_lr/resources/images
 # --- Temporary/Trash ---
 # Folder named 'y' which looks temporary, comment below if you want to use it
 y/
-robot_assets/
-unitree_ros/
 tests/
