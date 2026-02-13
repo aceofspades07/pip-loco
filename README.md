@@ -69,6 +69,24 @@ Checkpoints are saved to `logs/pip_go2_<timestamp>/`.
 
 ---
 
+## Training Process Overview
+
+Training uses a **three-phase hybrid approach** that coordinates multiple learning objectives without gradient interference:
+
+1. **Environment Rollout:** The robot collects experience by interacting with 1024 parallel Genesis environments. Each step, the actor network outputs joint position targets based on proprioceptive observations (joint angles, velocities, IMU data, and velocity commands).
+
+2. **Velocity Estimator Update:** A TCN processes the last 50 timesteps of observations to estimate the robot's true body velocity. This is trained via supervised learning against ground-truth simulator data, giving the actor implicit velocity feedback without direct sensor access.
+
+3. **Dreamer (World Model) Update:** Four small MLPs learn to predict future states, rewards, and values from the current observation. The dreamer "dreams" 5-step future rollouts, allowing the policy to plan ahead and anticipate consequences of actions. These 4 MLPs are trained via model-based supervised learning.
+
+4. **PPO Policy Update:** The actor and critic networks are updated using Proximal Policy Optimization. The critic has access to privileged information (true velocity, terrain, friction) during training, while the actor remains blind — enabling sim-to-real transfer.
+
+**Gradient Isolation:** Each component has its own optimizer. Gradients are explicitly detached between modules to prevent the estimator or dreamer losses from corrupting the policy, and vice versa.
+
+A typical training run progresses through ~5000 iterations, with the robot initially falling immediately, then learning to stand, walk, and finally track velocity commands smoothly.
+
+---
+
 ## Hardware Safety & Sim-to-Real Hardening
 
 ### Domain Randomization
