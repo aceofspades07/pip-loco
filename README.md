@@ -65,7 +65,7 @@ Checkpoints are saved to `logs/pip_go2_<timestamp>/`.
 | **Asymmetric Actor-Critic** | Actor receives 45-dim blind proprioception (joint pos/vel, IMU, commands). Critic receives privileged simulator data (true velocity, friction, terrain heights). |
 | **TCN Velocity Estimator** | 3-layer Temporal Convolutional Network that regresses body velocity from 50-step observation history—no kinematic assumptions. |
 | **Dreamer (No-Latent Model)** | 4 independent MLPs (dynamics, reward, policy, value) that predict future states. Generates 5-step imagined rollouts fed to the actor. |
-| **HybridTrainer** | Coordinates three separate optimizers with strict gradient isolation: Estimator (supervised), Dreamer (model-based), PPO (policy). |
+| **HybridTrainer** | Coordinates three separate optimizers with strict gradient isolation: Estimator (supervised learning), Dreamer (model-based learning), PPO (policy learning). |
 
 ---
 
