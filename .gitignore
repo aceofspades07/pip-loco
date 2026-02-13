@@ -18,7 +18,6 @@ genesis_lr/resources/images
 .vscode/
 .idea/
 
-# --- Temporary/Trash ---
-# Folder named 'y' which looks temporary, comment below if you want to use it
+# --- Temporary/Trash/Tests ---
 y/
 tests/
