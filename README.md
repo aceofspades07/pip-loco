@@ -5,9 +5,9 @@
 [![PyTorch 2.8](https://img.shields.io/badge/PyTorch-2.8-ee4c2c.svg)](https://pytorch.org/)
 [![Genesis 0.3](https://img.shields.io/badge/Genesis-0.3-green.svg)](https://genesis-embodied-ai.github.io/)
 
-![Unitree Go2 Walking](docs/assets/hero_walk.gif)
+![Unitree Go2 Walking](assets/hero_walk.gif)
 
-A fast, robust, blind locomotion policy for the Unitree Go2 quadruped. Trains on a **single consumer laptop GPU** (RTX 3050 Ti) in **~4 hours (~160M steps)** using 1024 parallel environments in the Genesis physics simulator. Produces sim-to-real ready policies via aggressive domain randomization and hardware-safe Quadratic Barrier constraints.
+A fast, robust, blind RL-based locomotion policy for the Unitree Go2 quadruped. Trains on a **single consumer laptop GPU** (RTX 3050 Ti) in **~4 hours (~160M steps)** using 1024 parallel environments in the Genesis physics simulator. Produces sim-to-real ready policies via aggressive domain randomization and hardware-safe Quadratic Barrier constraints.
 
 > **Evaluators & Researchers:** For the deep dive into the math, architecture, and gradient isolation strategy, see the [Technical Blog](<!-- PLACEHOLDER: INSERT GITHUB.IO BLOG LINK HERE -->).
 
@@ -19,12 +19,12 @@ A fast, robust, blind locomotion policy for the Unitree Go2 quadruped. Trains on
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/pip-loco.git
-cd pip-loco
+git clone https://github.com/aceofspades07/pip_loco.git
+cd pip_loco
 
 # Create and activate conda environment
-conda create -n pip_loco python=3.10 -y
-conda activate pip_loco
+conda create -n pip_genesis python=3.10 -y
+conda activate pip_genesis
 
 # Install PyTorch with CUDA support
 pip install torch==2.8.0+cu126 torchvision==0.23.0+cu126 --index-url https://download.pytorch.org/whl/cu126
@@ -64,7 +64,7 @@ Checkpoints are saved to `logs/pip_go2_<timestamp>/`.
 |-----------|-------------|
 | **Asymmetric Actor-Critic** | Actor receives 45-dim blind proprioception (joint pos/vel, IMU, commands). Critic receives privileged simulator data (true velocity, friction, terrain heights). |
 | **TCN Velocity Estimator** | 3-layer Temporal Convolutional Network that regresses body velocity from 50-step observation history — no kinematic assumptions. |
-| **Dreamer (No-Latent Model)** | 4 independent MLPs (dynamics, reward, policy, value) that predict future states. Generates 5-step imagined rollouts fed to the actor. |
+| **Dreamer (No-Latent Model)** | 4 independent MLPs (dynamics, reward, policy, value) that predict future states. Generates 5-step 'dreamed' rollouts fed to the actor. |
 | **HybridTrainer** | Coordinates three separate optimizers with strict gradient isolation: Estimator (supervised learning), Dreamer (model-based learning), PPO (policy learning). |
 
 ---
