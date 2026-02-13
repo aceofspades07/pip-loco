@@ -1,8 +1,7 @@
 """
-Velocity Estimator for PIP-Loco.
-Standalone TCN regressor for body linear velocity.
-Input: (Batch, History_Length, Input_Dim). Output: (Batch, 3).
-Dims swapped to (B, C, L); features flattened then mapped by MLP.
+Velocity Estimator for PIP-Loco
+Predicts body velocity from a history of blind observations
+Input: (Batch , History_Length , Input_Dim). Output: (Batch , 3).
 """
 
 import torch
@@ -12,14 +11,12 @@ from typing import List
 
 class VelocityEstimator(nn.Module):
     """
-    TCN for estimating body linear velocity from proprioceptive history.
-    
-    Backbone: 3×Conv1d with ReLU+BatchNorm (48→128→64→32), stride=1, padding=1
-    preserves temporal length. Head: Flatten (last_channels×history_length)
-    → Linear(128) → ReLU → Linear(3).
-    
-    Input: torch.Tensor (Batch, History_Length, Input_Dim).
-    Output: torch.Tensor (Batch, 3) as [v_x, v_y, v_z].
+    Temporal Convolutional Network (TCN) for Body Velocity Estimation
+    Processes a history of motion data to predict body velocity (v_x, v_y, v_z)
+    Encoder: Three 1D convolutional layers (48 -> 128 -> 64 -> 32) with ReLU and BatchNorm.
+    Head: Flattens temporal features into a two-layer MLP (Linear 128 -> Linear 3).
+    Input: (Batch , History, Features)
+    Output: (Batch , 3)
     """
     
     def __init__(
@@ -39,7 +36,7 @@ class VelocityEstimator(nn.Module):
         self.hidden_dims = hidden_dims
         self.output_dim = output_dim
         
-        # TCN backbone: Conv → ReLU → BN blocks, time preserved
+        # TCN : Conv -> ReLU -> BN blocks
         conv_layers = []
         in_channels = input_dim
         
@@ -53,7 +50,7 @@ class VelocityEstimator(nn.Module):
         
         self.tcn = nn.Sequential(*conv_layers)
         
-        # Flatten dimension: channels × temporal length
+        # Flatten dimension: channels * temporal length
         flatten_dim = hidden_dims[-1] * history_length
         
         # MLP head for regression
@@ -63,24 +60,18 @@ class VelocityEstimator(nn.Module):
             nn.Linear(128, output_dim)
         )
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, obs_history: torch.Tensor) -> torch.Tensor:
         """
         Forward pass through the velocity estimator.
-        
-        Args:
-            x: Input tensor of shape (Batch, History_Length, Input_Dim)
-        
-        Returns:
-            Estimated velocity tensor of shape (Batch, 3)
+        Input : tensor of shape (Batch, History_Length, Input_Dim)
+        Returns the estimated velocity tensor of shape (Batch, 3)
         """
-        # Swap dims for Conv1d: (B, L, C) → (B, C, L)
-        x = x.permute(0, 2, 1)
-        
-        x = self.tcn(x)
+        # Swap dims for Conv1d: (B, L, C) -> (B, C, L)
+        obs_history = obs_history.permute(0, 2, 1)
+        x = self.tcn(obs_history)
         
         # Flatten temporal features for the MLP
         x = x.flatten(start_dim=1)
-        
         velocity = self.mlp(x)
         
         return velocity

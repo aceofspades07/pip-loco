@@ -1,7 +1,6 @@
 """
 PIP-Loco Asymmetric Actor-Critic Network
-PPO-based architecture with blind actor and privileged critic.
-Smart Wrapper that owns VelocityEstimator and Dreamer sub-modules.
+PPO-based architecture with blind actor and privileged critic
 """
 
 import math
@@ -14,12 +13,10 @@ from torch.distributions import Normal
 
 class ActorCritic(nn.Module):
     """
-    Asymmetric Actor-Critic for blind quadruped locomotion.
-    
-    Actor: Processes partial observations (proprioception + velocity estimate + dreamed trajectory)
+    Actor: Processes partial observations (blind obs + velocity estimate + dreams)
     Critic: Processes privileged simulation state (friction, terrain, true velocity, etc.)
     
-    This class owns the sub-modules and handles input concatenation internally.
+    This class owns the sub-modules and handles input concatenation internally
     """
 
     def __init__(
@@ -62,7 +59,7 @@ class ActorCritic(nn.Module):
             activation=activation,
         )
 
-        # Learnable log standard deviation (initialize so exp(log_std) = init_noise_std)
+        # Learnable log standard deviation 
         self.log_std = nn.Parameter(
             torch.log(torch.ones(num_actions) * init_noise_std)
         )
@@ -73,7 +70,7 @@ class ActorCritic(nn.Module):
     def _get_actor_input(
         self, obs: torch.Tensor, obs_history: torch.Tensor, detach: bool = True
     ) -> torch.Tensor:
-        """Construct full actor input: [obs, velocity_estimate, dreams]."""
+        # Construct full actor input: (obs, velocity_estimate, dreams)
         velocity = self.estimator(obs_history)
         dreams = self.dreamer.generate_dreams(obs, self.horizon)
 
@@ -90,7 +87,7 @@ class ActorCritic(nn.Module):
         hidden_dims: List[int],
         activation: Type[nn.Module],
     ) -> nn.Sequential:
-        """Construct MLP with specified architecture. Final layer has no activation."""
+        # Construct MLP with specified architecture. Final layer has no activation
         layers = []
         prev_dim = input_dim
 
@@ -104,8 +101,8 @@ class ActorCritic(nn.Module):
 
     def _init_weights(self) -> None:
         """
-        Orthogonal initialization with gain=sqrt(2) for hidden layers,
-        gain=0.01 for final layers to keep initial outputs near zero.
+        Orthogonal initialization with gain=sqrt(2) for hidden layers.
+        Gain=0.01 for final layers to keep initial outputs near zero.
         """
         for module in self.modules():
             if isinstance(module, nn.Linear):
@@ -119,10 +116,7 @@ class ActorCritic(nn.Module):
         nn.init.constant_(self.critic[-1].bias, 0.0)
 
     def act(self, obs: torch.Tensor, obs_history: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Stochastic action selection for training.
-        Returns sampled action and its log probability.
-        """
+        # Returns sampled action and its log probability
         actor_input = self._get_actor_input(obs, obs_history, detach=True)
         mean = self.actor(actor_input)
         std = self.log_std.exp()
@@ -134,24 +128,23 @@ class ActorCritic(nn.Module):
     def evaluate_actions(
         self, obs: torch.Tensor, obs_history: torch.Tensor, actions: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Evaluate log probabilities and entropy of given actions under current policy.
-        Used for PPO loss computation.
-        """
+        # Evaluate log probabilities and entropy of given actions under current policy.
+
         actor_input = self._get_actor_input(obs, obs_history, detach=True)
         mean = self.actor(actor_input)
         std = self.log_std.exp()
         distribution = Normal(mean, std)
         log_prob = distribution.log_prob(actions).sum(dim=-1, keepdim=True)
         entropy = distribution.entropy().sum(dim=-1).mean()
-        return log_prob, entropy
+        return log_prob, entropy # Used for PPO loss computation
     
     
     def evaluate(self, critic_obs: torch.Tensor) -> torch.Tensor:
-        """Compute value estimate from privileged observations."""
+        # Compute value estimate from privileged observations using critic network
         return self.critic(critic_obs)
 
     def act_inference(self, obs: torch.Tensor, obs_history: torch.Tensor) -> torch.Tensor:
-        """Deterministic action selection for deployment (returns mean)."""
+        # Deterministic action selection 
+        # Use this during inference
         actor_input = self._get_actor_input(obs, obs_history, detach=True)
         return self.actor(actor_input)

@@ -1,16 +1,7 @@
 """
-PIP-Loco Training Script: Orchestrates hybrid RL training for blind quadruped locomotion.
-
-This script is the "Conductor" that coordinates:
-  1. Data collection via rollouts in Genesis simulation
-  2. Buffer management with GAE-based return computation
-  3. Hybrid training updates (Velocity Estimator + Dreamer + PPO)
-
-Architecture Overview:
-  - Actor (blind):  proprioception + velocity estimate (TCN) + dreamed futures → actions
-  - Critic (privileged): ground-truth physics + terrain heights → value estimate
-
-Author: PIP-Loco Team
+Training script for PIP-Loco blind quadruped locomotion using hybrid RL.
+Coordinates data collection, GAE return computation, and hybrid training updates
+for Velocity Estimator, Dreamer world model, and PPO policy.
 """
 
 from csv import writer
@@ -23,17 +14,11 @@ import numpy as np
 from collections import deque
 from datetime import datetime
 
-# ---------------------------------------------------------------------------
-# Ensure project root is importable regardless of launch directory
-# ---------------------------------------------------------------------------
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
-
-# ---------------------------------------------------------------------------
-# Project imports
-# ---------------------------------------------------------------------------
+    
 from config.pip_config import PIPGO2Cfg, PIPTrainCfg
 from envs.genesis_wrapper import GenesisWrapper
 from modules.velocity_estimator import VelocityEstimator
@@ -46,29 +31,15 @@ import genesis as gs
 
 
 def train() -> None:
-    """
-    Main training entry-point for PIP-Loco blind locomotion.
 
-    Execution flow per iteration:
-        Phase A – Rollout:   collect experience in parallel Genesis envs
-        Phase B – Accounting: compute GAE returns and advantages
-        Phase C – Update:     hybrid gradient step (Estimator / Dreamer / PPO)
-    """
-
-    # ==================================================================
-    # 1. CONFIGURATION
-    # ==================================================================
     env_cfg = PIPGO2Cfg()
     train_cfg = PIPTrainCfg()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[PIP-Loco] Using device: {device}")
 
-    # Reproducibility
     torch.manual_seed(train_cfg.seed)
     np.random.seed(train_cfg.seed)
-
-    # Logging directory: logs/<experiment>_<timestamp>
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = os.path.join(
         PROJECT_ROOT, "logs", f"{train_cfg.runner.experiment_name}_{timestamp}"
@@ -79,13 +50,7 @@ def train() -> None:
 
     print(f"[PIP-Loco] Logging to: {log_dir}")
 
-    # ==================================================================
-    # 2. ENVIRONMENT
-    # ==================================================================
-    # Genesis must be initialized before creating any scene
     gs.init(logging_level="warning")
-
-    # GenesisSimulator reads dt and substeps from sim_params dict
     sim_params = {
         "dt": env_cfg.sim.dt,
         "substeps": env_cfg.sim.substeps,
@@ -98,21 +63,15 @@ def train() -> None:
         headless=True,
     )
 
-    # Observation / action dimensions
-    num_actor_obs = env_cfg.env.num_observations          # 45 (blind proprioception)
-    num_actions = env_cfg.env.num_actions                  # 12 (joint position targets)
-    # num_privileged_obs is computed inside GenesisWrapper, never trust the config default
+    num_actor_obs = env_cfg.env.num_observations
+    num_actions = env_cfg.env.num_actions
     num_critic_obs = env.num_privileged_obs
     print(
         f"[PIP-Loco] Obs dims – actor: {num_actor_obs}, "
         f"critic: {num_critic_obs}, actions: {num_actions}"
     )
 
-    # ==================================================================
-    # 3. NEURAL NETWORKS  (the "Hybrid Brain")
-    # ==================================================================
-
-    # 3A. Velocity Estimator – TCN that infers body velocity from history
+    # Initialize all of the models and the trainer
     estimator = VelocityEstimator(
         input_dim=num_actor_obs,
         history_length=env_cfg.env.history_len,
@@ -120,7 +79,6 @@ def train() -> None:
         output_dim=train_cfg.estimator.output_dim,
     ).to(device)
 
-    # 3B. Dreamer (World Model) – learned simulator for imagined rollouts
     dreamer = NoLatentModel(
         obs_dim=num_actor_obs,
         action_dim=num_actions,
@@ -128,7 +86,6 @@ def train() -> None:
         activation=torch.nn.ELU,
     ).to(device)
 
-    # 3C. Actor-Critic – owns Estimator & Dreamer, handles input concatenation
     actor_critic = ActorCritic(
         num_actor_obs=num_actor_obs,
         num_critic_obs=num_critic_obs,
@@ -142,9 +99,6 @@ def train() -> None:
         init_noise_std=train_cfg.policy.init_noise_std,
     ).to(device)
 
-    # ==================================================================
-    # 4. TRAINER  (gradient-isolated optimizers for each module)
-    # ==================================================================
     trainer = HybridTrainer(
         actor_critic=actor_critic,
         device=device,
@@ -160,9 +114,6 @@ def train() -> None:
         max_grad_norm=train_cfg.algorithm.max_grad_norm,
     )
 
-    # ==================================================================
-    # 5. ROLLOUT STORAGE  (GPU-resident replay buffer)
-    # ==================================================================
     num_steps_per_env = train_cfg.runner.num_steps_per_env
 
     storage = RolloutStorage(
@@ -175,17 +126,12 @@ def train() -> None:
         device=device,
     )
 
-    # ==================================================================
-    # 6. TRAINING LOOP
-    # ==================================================================
     max_iterations = train_cfg.runner.max_iterations
     save_interval = train_cfg.runner.save_interval
 
-    # Episode tracking (rewards are summed per-env across an episode)
     ep_reward_buf = deque(maxlen=100)
     current_rewards = torch.zeros(env_cfg.env.num_envs, 1, device=device)
 
-    # Initial environment reset – populates obs buffers via step()
     obs, privileged_obs = env.reset()
     obs = obs.to(device)
     privileged_obs = privileged_obs.to(device)
@@ -196,23 +142,18 @@ def train() -> None:
 
     print(f"[PIP-Loco] Starting training for {max_iterations} iterations")
     print(f"[PIP-Loco] Rollout length: {num_steps_per_env} steps × {env_cfg.env.num_envs} envs")
-    print("=" * 70)
 
     for iteration in range(max_iterations):
         iter_start = time.time()
 
-        # ==============================================================
-        # Phase A: DATA COLLECTION  (rollout in parallel environments)
-        # ==============================================================
         actor_critic.eval()
 
         with torch.no_grad():
-            for step in range(num_steps_per_env):
-                # --- Inference ---
+            for step in range(num_steps_per_env): 
+                # Collect rollout data and store in RolloutStorage object
                 actions, log_probs = actor_critic.act(obs, obs_history)
                 values = actor_critic.evaluate(privileged_obs)
 
-                # --- Physics step ---
                 next_obs, next_privileged_obs, rewards, dones, extras = env.step(actions)
 
                 next_obs = next_obs.to(device)
@@ -220,11 +161,8 @@ def train() -> None:
                 rewards = rewards.unsqueeze(-1).to(device) if rewards.dim() == 1 else rewards.to(device)
                 dones = dones.unsqueeze(-1).to(device) if dones.dim() == 1 else dones.to(device)
 
-                # Extract updated history from the environment
                 next_history = extras["observations_history"].to(device)
 
-                # --- Store transition ---
-                # mu/sigma placeholders (not used for importance weighting in this setup)
                 mu_placeholder = actions.clone()
                 sigma_placeholder = actions.clone()
 
@@ -242,9 +180,7 @@ def train() -> None:
                     sigma=sigma_placeholder,
                 )
 
-                # --- Episode reward tracking ---
                 current_rewards += rewards
-                # Log completed episodes and reset their counters
                 done_mask = dones.squeeze(-1).bool()
                 if done_mask.any():
                     finished_rewards = current_rewards[done_mask].cpu().numpy().flatten()
@@ -252,36 +188,27 @@ def train() -> None:
                         ep_reward_buf.append(float(r))
                     current_rewards[done_mask] = 0.0
 
-                # --- Handover: shift state for next step ---
                 obs = next_obs
                 privileged_obs = next_privileged_obs
                 obs_history = next_history
 
         total_timesteps += num_steps_per_env * env_cfg.env.num_envs
 
-        # ==============================================================
-        # Phase B: RETURN COMPUTATION  (GAE advantage estimation)
-        # ==============================================================
         with torch.no_grad():
             last_values = actor_critic.evaluate(privileged_obs)
 
+        # Compute returns using GAE
         storage.compute_returns(
             last_values=last_values,
             gamma=train_cfg.algorithm.gamma,
             lam=train_cfg.algorithm.lam,
         )
 
-        # ==============================================================
-        # Phase C: HYBRID TRAINING UPDATE
-        # ==============================================================
+        # Update the weights in all networks
         losses = trainer.update(storage)
 
-        # Clear the buffer immediately so the next rollout starts clean
         storage.clear()
 
-        # ==============================================================
-        # 7. LOGGING
-        # ==============================================================
         iter_time = time.time() - iter_start
         fps = int(num_steps_per_env * env_cfg.env.num_envs / iter_time)
 
@@ -290,8 +217,6 @@ def train() -> None:
         writer.add_scalar("Perf/FPS", fps, iteration)
         writer.add_scalar("Train/MeanReward", mean_reward, iteration)
         writer.add_scalar("Train/IterTime", iter_time, iteration)
-        
-        # Log losses
         writer.add_scalar("Loss/Velocity", losses['loss/velocity'], iteration)
         writer.add_scalar("Loss/Dreamer", losses['loss/dreamer'], iteration)
         writer.add_scalar("Loss/Policy", losses['loss/policy'], iteration)
@@ -317,9 +242,6 @@ def train() -> None:
                 f"Time {elapsed:.0f}s"
             )
 
-        # ==============================================================
-        # 8. CHECKPOINTING
-        # ==============================================================
         if (iteration + 1) % save_interval == 0:
             checkpoint = {
                 "iteration": iteration,
@@ -331,11 +253,8 @@ def train() -> None:
             }
             ckpt_path = os.path.join(log_dir, f"model_{iteration + 1}.pt")
             torch.save(checkpoint, ckpt_path)
-            print(f"[PIP-Loco] Checkpoint saved → {ckpt_path}")
+            print(f"[PIP-Loco] Checkpoint saved to {ckpt_path}")
 
-    # ==================================================================
-    # 9. FINAL SAVE
-    # ==================================================================
     final_checkpoint = {
         "iteration": max_iterations - 1,
         "model_state_dict": actor_critic.state_dict(),

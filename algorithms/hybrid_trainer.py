@@ -1,3 +1,8 @@
+"""
+HybridTrainer: A specialized trainer for PIP-Loco architecture - consisting of a Velocity Estimator, a Dreamer/World Model, and an Actor-Critic.
+Enforces strict Gradient Hygiene by using separate optimizers for each component,
+ensuring gradients from PPO never flow back into the Estimator or Dreamer.
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,17 +13,6 @@ from algorithms.storage import RolloutStorage
 
 
 class HybridTrainer:
-    """
-    HybridTrainer: A specialized trainer for PIP-Loco architecture.
-    
-    Manages the simultaneous training of three distinct neural networks:
-    1. Velocity Estimator (Supervised Learning)
-    2. Dreamer/World Model (Model-Based Learning)
-    3. Actor-Critic (Reinforcement Learning via PPO)
-    
-    Enforces strict Gradient Hygiene by using separate optimizers for each component,
-    ensuring gradients from PPO never flow back into the Estimator or Dreamer.
-    """
 
     def __init__(
         self,
@@ -66,16 +60,8 @@ class HybridTrainer:
         """
         Performs a complete training update using data from the rollout storage.
         
-        Executes three distinct update phases per minibatch:
-        Phase A: Estimator update (velocity prediction)
-        Phase B: Dreamer update (world model learning)
-        Phase C: PPO update (policy and value function)
-        
-        Args:
-            storage: RolloutStorage containing collected trajectory data.
-            
-        Returns:
-            dict: Dictionary containing mean losses for logging.
+        Args: storage (RolloutStorage containing collected trajectory data).
+        Returns: dict (a dictionary containing mean losses for logging).
         """
         self.actor_critic.train()
         
@@ -89,7 +75,7 @@ class HybridTrainer:
         
         for epoch in range(self.num_epochs):
             minibatch_generator = storage.generate_minibatch(self.mini_batch_size)
-            
+            # 3 updates per minibatch 
             for minibatch in minibatch_generator:
                 (
                     obs,
@@ -121,7 +107,7 @@ class HybridTrainer:
                 mu = mu.to(self.device)
                 sigma = sigma.to(self.device)
                 
-                # Phase A: Estimator Update - supervised velocity prediction
+                # Estimator update - supervised velocity prediction
                 true_vel = privileged_obs[:, self.velocity_indices]
                 pred_vel = self.actor_critic.estimator(obs_history)
                 loss_est = F.mse_loss(pred_vel, true_vel)
@@ -130,7 +116,7 @@ class HybridTrainer:
                 loss_est.backward()
                 self.optimizer_est.step()
                 
-                # Phase B: Dreamer Update - world model learning
+                # Dreamer update - model based learning 
                 pred_next_obs, pred_rewards, pred_actions, pred_values, _ = self.actor_critic.dreamer(obs, actions)
                 
                 loss_dynamics = F.mse_loss(pred_next_obs, next_obs)
@@ -143,18 +129,18 @@ class HybridTrainer:
                 loss_dream.backward()
                 self.optimizer_dream.step()
                 
-                # Phase C: PPO Update - policy and value optimization
+                # PPO Update - policy and value optimization
                 log_probs, entropy = self.actor_critic.evaluate_actions(obs, obs_history, actions)
                 value_pred = self.actor_critic.evaluate(privileged_obs)
                 
-                # Importance sampling ratio: pi_new(a|s) / pi_old(a|s)
+                # Importance sampling ratio
                 log_probs = log_probs.view(-1, 1) 
                 ratio = torch.exp(log_probs - actions_log_probs)
                 
                 # Approximate KL divergence to monitor policy stability
                 approx_kl = 0.5 * ((actions_log_probs - log_probs).pow(2).mean())
                 
-                # Clipped surrogate objective prevents destructively large policy updates
+                # Clipped surrogate objective - prevents large policy updates
                 surr1 = -advantages * ratio
                 surr2 = -advantages * torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
                 policy_loss = torch.max(surr1, surr2).mean()
@@ -165,7 +151,7 @@ class HybridTrainer:
                 self.optimizer_ppo.zero_grad()
                 total_loss.backward()
                 
-                # Gradient clipping to prevent exploding gradients and policy collapse
+                # Gradient clipping 
                 nn.utils.clip_grad_norm_(self.actor_critic.actor.parameters(), self.max_grad_norm)
                 nn.utils.clip_grad_norm_(self.actor_critic.critic.parameters(), self.max_grad_norm)
                 

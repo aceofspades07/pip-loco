@@ -1,5 +1,6 @@
 """
-RolloutStorage: GPU-accelerated replay buffer for PIP-Loco.
+Memory buffer for the PIP-Loco RL pipeline.
+Manages data lifecycle: ingestion, Value computation, and minibatch generation.
 Acts as the data bridge between the simulator and the HybridTrainer.
 """
 
@@ -9,10 +10,6 @@ from typing import Tuple, Generator
 
 
 class RolloutStorage:
-    """
-    High-performance memory buffer for the PIP-Loco RL pipeline.
-    Manages data lifecycle: ingestion, GAE computation, and mini-batch serving.
-    """
 
     def __init__(
         self,
@@ -34,7 +31,7 @@ class RolloutStorage:
 
         self.step = 0
 
-        # Standard PPO Buffers
+        # Standard PPO buffers
         self.obs = torch.zeros(
             num_transitions_per_env, num_envs, obs_shape[0],
             dtype=torch.float32, device=self.device
@@ -72,19 +69,19 @@ class RolloutStorage:
             dtype=torch.float32, device=self.device
         )
 
-        # PIP-LOCO Specific Buffers
-        # Rolling history window for Velocity Estimator (TCN input)
+        # Sliding window for velocity estimator input
         self.obs_history = torch.zeros(
             num_transitions_per_env, num_envs, history_len, obs_shape[0],
             dtype=torch.float32, device=self.device
         )
-        # Next observation for Dreamer dynamics loss
+
+        # Next observation for dreamer dynamics loss function
         self.next_obs = torch.zeros(
             num_transitions_per_env, num_envs, obs_shape[0],
             dtype=torch.float32, device=self.device
         )
 
-        # Computed Targets (filled by compute_returns)
+        # Computed targets (filled by compute_returns)
         self.returns = torch.zeros(
             num_transitions_per_env, num_envs, 1,
             dtype=torch.float32, device=self.device
@@ -135,32 +132,32 @@ class RolloutStorage:
         lam: float,
     ) -> None:
         """
-        Computes returns and advantages using Generalized Advantage Estimation (GAE).
+        Computes returns and advantages using Generalized Advantage Estimation.
         Iterates backwards through the buffer for temporal difference bootstrapping.
         """
         last_gae_lam = 0
 
-        # GAE: backward pass from T-1 to 0
+        # Go from t=T-1 to t=0
         for step in reversed(range(self.num_transitions_per_env)):
             if step == self.num_transitions_per_env - 1:
                 next_values = last_values
             else:
                 next_values = self.values[step + 1]
 
-            # TD residual: r_t + gamma * V(s_{t+1}) * (1 - done) - V(s_t)
+            # TD residual
             delta = (
                 self.rewards[step]
                 + gamma * next_values * (1 - self.dones[step])
                 - self.values[step]
             )
 
-            # GAE (generalized advantage estimation) recursive formula
+            # GAE recursive formula
             last_gae_lam = (
                 delta + gamma * lam * (1 - self.dones[step]) * last_gae_lam
             )
             self.advantages[step] = last_gae_lam
 
-            # Return = Advantage + Value
+            # Return = advantage + value
             self.returns[step] = self.advantages[step] + self.values[step]
 
     def generate_minibatch(
@@ -178,18 +175,17 @@ class RolloutStorage:
     ]:
         """
         Yields shuffled mini-batches for a single epoch of training.
-        Flattens (num_transitions, num_envs) -> (total_samples) for all buffers.
-        The caller is responsible for iterating over multiple epochs.
+        Flattens (num_transitions , num_envs) to (total_samples) for all buffers.
         """
         assert self.step == self.num_transitions_per_env, "Buffer not full"
 
         total_samples = self.num_transitions_per_env * self.num_envs
         batch_size = total_samples // num_mini_batches
 
-        # Flatten all buffers: merge (T, N) -> (T*N)
+        # Flatten all buffers
         obs_flat = self.obs.view(total_samples, -1)
         privileged_obs_flat = self.privileged_obs.view(total_samples, -1)
-        # obs_history: (T, N, H, D) -> (T*N, H, D)
+
         obs_history_flat = self.obs_history.view(
             total_samples, self.history_len, self.obs_shape[0]
         )
@@ -204,7 +200,7 @@ class RolloutStorage:
         mu_flat = self.mu.view(total_samples, -1)
         sigma_flat = self.sigma.view(total_samples, -1)
 
-        # Shuffle indices for this epoch
+        # Shuffle indices
         indices = torch.randperm(total_samples, device=self.device)
 
         for start in range(0, total_samples, batch_size):
@@ -228,5 +224,5 @@ class RolloutStorage:
             )
 
     def clear(self) -> None:
-        """Resets the step counter for the next rollout collection."""
+        # Reset buffer and step counter
         self.step = 0
