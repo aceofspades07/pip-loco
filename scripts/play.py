@@ -123,7 +123,7 @@ class KeyboardController:
         return True
     
     def _render(self):
-        self.screen.fill((30, 30, 30))
+        self.screen.fill((35, 35, 35))
         lines = [
             f"Vx: {self.vel_x:+.2f} m/s",
             f"Vy: {self.vel_y:+.2f} m/s", 
