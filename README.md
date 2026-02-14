@@ -5,7 +5,8 @@
 [![PyTorch 2.8](https://img.shields.io/badge/PyTorch-2.8-ee4c2c.svg)](https://pytorch.org/)
 [![Genesis 0.3](https://img.shields.io/badge/Genesis-0.3-green.svg)](https://genesis-embodied-ai.github.io/)
 
-![Unitree Go2 Walking](./assets/pip-loco-recording.mp4)
+<video src="./assets/pip-loco-recording.mp4" controls="controls" style="max-width: 100%;" autoplay="autoplay" loop="loop" muted="muted">
+</video>
 
 A fast, robust, blind RL-based locomotion policy for the Unitree Go2 quadruped. Trains on a **single consumer laptop GPU** (RTX 3050 Ti) in **~4 hours (~160M steps)** using 1024 parallel environments in the Genesis physics simulator. Produces sim-to-real ready policies via aggressive domain randomization and hardware-safe Quadratic Barrier constraints.
 
