@@ -130,7 +130,7 @@ Key sections:
 
 ## Roadmap
 
-- [x] **Phase 1:** Concurrent training of the Asymmetric Actor-Critic, NLM Dreamer, TCN Velocity Estimator for Blind flat-ground locomotion
+- [x] **Phase 1:** Concurrent training of the Asymmetric Actor-Critic, NLM Dreamer, TCN Velocity Estimator for Blind locomotion
 - [ ] **Phase 2:** Model Predictive Path Integral (MPPI) planner integration
 - [ ] **Phase 3:** Rough terrain curriculum and visual exteroception
 
