@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch 2.8](https://img.shields.io/badge/PyTorch-2.8-ee4c2c.svg)](https://pytorch.org/)
+[![PyTorch 2.9](https://img.shields.io/badge/PyTorch-2.9-ee4c2c.svg)](https://pytorch.org/)
 [![Genesis 0.3](https://img.shields.io/badge/Genesis-0.3-green.svg)](https://genesis-embodied-ai.github.io/)
 
 ![Unitree Go2 Walking](./assets/pip-loco-recording.webp)
