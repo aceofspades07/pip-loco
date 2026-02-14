@@ -63,7 +63,7 @@ Checkpoints are saved to `logs/pip_go2_<timestamp>/`.
 | Component | Description |
 |-----------|-------------|
 | **Asymmetric Actor-Critic** | Actor receives 45-dim blind proprioception (joint pos/vel, IMU, commands). Critic receives privileged simulator data (true velocity, friction, terrain heights). |
-| **TCN Velocity Estimator** | 3-layer Temporal Convolutional Network that regresses body velocity from 50-step observation history — no kinematic assumptions. |
+| **TCN Velocity Estimator** | 3-layer Temporal Convolutional Network (TCN) that regresses body velocity from 50-step observation history — no kinematic assumptions. |
 | **Dreamer (No-Latent Model)** | 4 independent MLPs (dynamics, reward, policy, value) that predict future states. Generates 5-step 'dreamed' rollouts fed to the actor. |
 | **HybridTrainer** | Coordinates three separate optimizers with strict gradient isolation: Estimator (supervised learning), Dreamer (model-based learning), PPO (policy learning). |
 
@@ -75,7 +75,7 @@ Checkpoints are saved to `logs/pip_go2_<timestamp>/`.
 
 Training uses a **three-phase hybrid approach** that coordinates multiple learning objectives without gradient interference:
 
-1. **Velocity Estimator Update:** A TCN processes the last 50 timesteps of observations to estimate the robot's true body velocity. This is trained via supervised learning against ground-truth simulator data, giving the actor implicit velocity feedback without direct sensor access.
+1. **Velocity Estimator Update:** A Temporal Convolutional Network (TCN) processes the last 50 timesteps of observations to estimate the robot's true body velocity. This is trained via supervised learning against ground-truth simulator data, giving the actor implicit velocity feedback without direct sensor access.
 
 2. **Dreamer (World Model) Update:** Four small MLPs learn to predict future states, rewards, and values from the current observation. The dreamer "dreams" 5-step future rollouts, allowing the policy to plan ahead and anticipate consequences of actions. These 4 MLPs are trained via model-based supervised learning.
 
@@ -130,10 +130,9 @@ Key sections:
 
 ## Roadmap
 
-- [x] **Phase 1:** Blind flat-ground locomotion (Asymmetric Actor-Critic + TCN)
-- [x] **Phase 2:** Internal Model training (NLM Dreamer) and Sim-to-Real hardening
-- [ ] **Phase 3:** Model Predictive Path Integral (MPPI) planner integration
-- [ ] **Phase 4:** Rough terrain curriculum and visual exteroception
+- [x] **Phase 1:** Concurrent training of the Asymmetric Actor-Critic, NLM Dreamer, TCN Velocity Estimator for Blind flat-ground locomotion
+- [ ] **Phase 2:** Model Predictive Path Integral (MPPI) planner integration
+- [ ] **Phase 3:** Rough terrain curriculum and visual exteroception
 
 ---
 
