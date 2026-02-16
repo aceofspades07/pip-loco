@@ -9,7 +9,7 @@
 
 A fast, robust, blind RL-based locomotion policy for the Unitree Go2 quadruped. Trains on a **single consumer laptop GPU** (RTX 3050 Ti) in **~4 hours (~160M steps)** using 1024 parallel environments in the Genesis physics simulator. Produces sim-to-real ready policies via aggressive domain randomization and hardware-safe Quadratic Barrier constraints.
 
-For the deep dive into the math, architecture, and gradient isolation strategy, go through my **[Technical Blog](https://aceofspades07.github.io/blog/pip-loco.html)**
+For the deep dive into the math, architecture, and gradient isolation strategy, go through my **[Technical Blog](https://aceofspades07.github.io/blog/pip-loco.html)**.
 
 ---
 
