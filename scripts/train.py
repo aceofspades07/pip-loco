@@ -129,6 +129,29 @@ def train() -> None:
     max_iterations = train_cfg.runner.max_iterations
     save_interval = train_cfg.runner.save_interval
 
+    start_iter = 0
+    if getattr(train_cfg.runner, "resume", False):
+        load_folder = str(train_cfg.runner.load_run)
+        chkpt = train_cfg.runner.checkpoint
+        
+        run_dir = os.path.join(PROJECT_ROOT, "logs", load_folder)
+        model_name = "model_final.pt" if str(chkpt) == "-1" else f"model_{chkpt}.pt"
+        resume_path = os.path.join(run_dir, model_name)
+        
+        print(f"[PIP-Loco] Attempting to resume from: {resume_path}")
+        if os.path.exists(resume_path):
+            checkpoint = torch.load(resume_path, map_location=device)
+            actor_critic.load_state_dict(checkpoint['model_state_dict'])
+            trainer.optimizer_est.load_state_dict(checkpoint['optimizer_est'])
+            trainer.optimizer_dream.load_state_dict(checkpoint['optimizer_dream'])
+            trainer.optimizer_ppo.load_state_dict(checkpoint['optimizer_ppo'])
+            start_iter = checkpoint.get('iteration', 0) + 1
+            print(f"[PIP-Loco] Weights loaded. Resuming at iteration {start_iter}.")
+        else:
+            print(f"[PIP-Loco] Error: Resume path {resume_path} not found. Exiting.")
+            sys.exit(1)
+
+
     ep_reward_buf = deque(maxlen=100)
     current_rewards = torch.zeros(env_cfg.env.num_envs, 1, device=device)
 
@@ -143,7 +166,7 @@ def train() -> None:
     print(f"[PIP-Loco] Starting training for {max_iterations} iterations")
     print(f"[PIP-Loco] Rollout length: {num_steps_per_env} steps × {env_cfg.env.num_envs} envs")
 
-    for iteration in range(max_iterations):
+    for iteration in range(start_iter, max_iterations):
         iter_start = time.time()
 
         actor_critic.eval()
