@@ -1,5 +1,6 @@
 """
 Deployment script for 4 beat gait with PIP-Loco framework.
+Logs physical states for post-run analysis and visualization.
 """
 
 import os
@@ -11,7 +12,6 @@ import numpy as np
 import pygame
 import genesis as gs
 
-# Ensure project root is in path
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 if PROJECT_ROOT not in sys.path:
@@ -23,10 +23,8 @@ from modules.velocity_estimator import VelocityEstimator
 from modules.dreamer import NoLatentModel
 from modules.pip_actor_critic import ActorCritic
 
-# UPDATE THIS TO LATEST CHECKPOINT
 MODEL_PATH = str(Path(__file__).parent.parent / 'logs' / 'pip_go2_20260224_230452' / 'model_final.pt')
 
-# Velocity constraints
 VEL_X_MAX = 0.8
 VEL_X_MIN = 0.0  
 VEL_Y_MAX = 0.1
@@ -109,7 +107,7 @@ def play():
     gs.init(logging_level="warning")
     env = GenesisWrapper(cfg=env_cfg, sim_params={"dt": env_cfg.sim.dt, "substeps": 1}, sim_device=device, headless=False)
     
-    # Build/Load Policy
+    # Load Policy
     estimator = VelocityEstimator(input_dim=53, history_length=50)
     dreamer = NoLatentModel(obs_dim=53, action_dim=12)
     actor_critic = ActorCritic(
@@ -127,8 +125,16 @@ def play():
     controller = KeyboardController(device=device)
     obs, _ = env.reset()
     
-    # Buffers for report plotting
-    contact_data = []
+    # Data logging buffers
+    logged_data = {
+        'contact_forces': [],      # [T, 4] vertical forces per foot
+        'base_lin_vel': [],        # [T, 3] XYZ velocity
+        'commanded_vel': [],       # [T, 3] X, Y, Yaw commands
+        'joint_torques': [],       # [T, 12] torques
+        'joint_velocities': [],    # [T, 12] dof velocities
+        'projected_gravity': [],   # [T, 3] for roll/pitch
+    }
+    
     control_dt = env_cfg.sim.dt * env_cfg.control.decimation
 
     print("Running... Use Keyboard window to control robot.")
@@ -151,9 +157,14 @@ def play():
                 actions = actor_critic.act_inference(obs, env.obs_history_buf)
                 obs, _, _, _, extras = env.step(actions)
 
-                # Log Foot Contacts (1.0 if force > 1.0N)
+                # Log state data
                 forces = env.simulator.link_contact_forces[:, env.simulator.feet_indices, 2]
-                contact_data.append(forces.cpu().numpy().flatten())
+                logged_data['contact_forces'].append(forces[0].cpu().numpy())
+                logged_data['base_lin_vel'].append(env.simulator.base_lin_vel[0].cpu().numpy())
+                logged_data['commanded_vel'].append(env.commands[0, :3].cpu().numpy())
+                logged_data['joint_torques'].append(env.simulator.torques[0].cpu().numpy())
+                logged_data['joint_velocities'].append(env.simulator.dof_vel[0].cpu().numpy())
+                logged_data['projected_gravity'].append(env.simulator.projected_gravity[0].cpu().numpy())
 
                 elapsed = time.perf_counter() - start_time
                 if elapsed < control_dt:
@@ -162,9 +173,11 @@ def play():
     except Exception as e:
         print(f"Error: {e}")
     finally:
-        # Save data for phase plot
-        np.save("gait_data.npy", np.array(contact_data))
-        print("Gait data saved to gait_data.npy. Run plot script for report figures.")
+        # Stack and save all logged data
+        for key in logged_data:
+            logged_data[key] = np.stack(logged_data[key], axis=0)
+        np.save("gait_data.npy", logged_data)
+        print("Gait data saved to gait_data.npy")
         pygame.quit()
 
 if __name__ == "__main__":
