@@ -8,7 +8,7 @@ __pycache__/
 genesis_lr/logs/
 genesis_lr/resources/images
 
-# Ignore generated plots/images if you don't want them tracked
+# Ignore generated plots/images
 #*.png
 #*.jpg
 #*.gif
@@ -25,4 +25,4 @@ BLOG_POST.md
 BLOG_POST2.md
 assets/training-architecture.png
 
-
+config/pip_go2_config.py
