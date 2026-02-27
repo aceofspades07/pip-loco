@@ -40,7 +40,6 @@ class KeyboardController:
         pygame.init()
         
         # Create a small window to capture keyboard events
-        # PyGame needs a display surface to receive events
         self.screen = pygame.display.set_mode((400, 200))
         pygame.display.set_caption("PIP-Loco Controller - Press ESC to quit")
         
