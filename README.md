@@ -128,6 +128,52 @@ Key sections:
 
 ---
 
+## 4-Beat Walk Gait Using PIP-Loco Framework
+
+A 4-beat walk gait is a locomotion pattern where only one leg is in the air at any given time, cycling through each leg in sequence (FL → RR → FR → RL). This produces a stable, energy-efficient walking motion ideal for slow to moderate speeds, corresponding to a **75% duty factor** (each foot spends 75% of the gait cycle in stance). The PIP-Loco framework enforces this pattern through a **phase clock** with per-leg offsets and dedicated gait reward functions.
+
+### Running the 4-Beat Gait
+
+```bash
+# Run the pre-trained 4-beat walk policy with keyboard control
+# W/S: Forward/Backward | A/D: Strafe | Arrows: Turn | R: Reset | ESC: Quit
+python scripts/4beat_gait.py
+```
+
+The script loads the latest checkpoint and opens a Pygame window for real-time velocity commands. Foot contact data is logged and saved to `gait_data.npy` on exit for gait phase analysis.
+
+> **Note:** Update the `MODEL_PATH` variable at the top of `scripts/4beat_gait.py` to point to your desired checkpoint if you have trained a new model.
+
+### Training from Scratch
+
+All gait-related hyperparameters live in `config/pip_config.py`. To train a new 4-beat walk policy:
+
+1. **Adjust gait and reward configs** in `config/pip_config.py`:
+   - `PIPGO2Cfg.rewards.scales.gait_timing` — Weight for the phase-clock gait timing reward (default `3.0`).
+   - `PIPGO2Cfg.rewards.scales.contact_number` — Weight for encouraging 3-foot contact (default `2.0`).
+   - `PIPGO2Cfg.rewards.scales.foot_clearance` — Weight for swing-leg ground clearance (default `0.5`).
+   - `PIPGO2Cfg.rewards.scales.feet_slip` — Penalty for foot slipping during stance (default `-0.1`).
+   - Gait frequency and phase offsets are set in `envs/genesis_wrapper.py` (`gait_frequency`, `phase_offsets`).
+
+2. **Launch training:**
+
+```bash
+python scripts/train.py
+```
+
+Checkpoints are saved to `logs/pip_go2_<timestamp>/`.
+
+### Reward Functions
+
+The 4-beat walk gait is shaped by two dedicated reward functions on top of the standard PIP-Loco reward functions:
+
+- **Gait Timing (`_reward_gait_timing`):** Uses a phase clock with per-leg offsets to define the target swing/stance schedule. Compares actual foot contacts against the expected 4-beat pattern and rewards close adherence via an exponential kernel. Only active when a non-zero velocity command is given.
+- **Contact Number (`_reward_contact_number`):** Encourages exactly 3 feet to be in ground contact at any instant, penalizing deviations from this target.
+
+These are complemented by the **foot clearance** reward (ensuring the swing foot lifts sufficiently) and the **feet slip** penalty (discouraging stance-foot sliding), together producing a clean, hardware-safe walking gait.
+
+---
+
 ## Roadmap
 
 - [x] **Phase 1:** Concurrent training of the Asymmetric Actor-Critic, NLM Dreamer, TCN Velocity Estimator for Blind locomotion
