@@ -1,6 +1,6 @@
 """
 Memory buffer for the PIP-Loco RL pipeline.
-Manages data lifecycle: ingestion, Value computation, and minibatch generation.
+Manages data lifecycle: ingestion, value computation, and minibatch generation.
 Acts as the data bridge between the simulator and the HybridTrainer.
 """
 
@@ -107,7 +107,6 @@ class RolloutStorage:
     ) -> None:
         """
         Ingests a single timestep of experience from all parallel environments.
-        Uses in-place copy to prevent memory leaks and graph attachment.
         """
         assert self.step < self.num_transitions_per_env, "Rollout buffer overflow"
 

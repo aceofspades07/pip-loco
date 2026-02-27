@@ -12,11 +12,9 @@ from typing import List
 class VelocityEstimator(nn.Module):
     """
     Temporal Convolutional Network (TCN) for Body Velocity Estimation
-    Processes a history of motion data to predict body velocity (v_x, v_y, v_z)
+    Takes in a history of motion data to predict body velocity (v_x, v_y, v_z)
     Encoder: Three 1D convolutional layers (48 -> 128 -> 64 -> 32) with ReLU and BatchNorm.
     Head: Flattens temporal features into a two-layer MLP (Linear 128 -> Linear 3).
-    Input: (Batch , History, Features)
-    Output: (Batch , 3)
     """
     
     def __init__(
@@ -62,11 +60,9 @@ class VelocityEstimator(nn.Module):
     
     def forward(self, obs_history: torch.Tensor) -> torch.Tensor:
         """
-        Forward pass through the velocity estimator.
-        Input : tensor of shape (Batch, History_Length, Input_Dim)
-        Returns the estimated velocity tensor of shape (Batch, 3)
+        Forward pass through the velocity estimator
         """
-        # Swap dims for Conv1d: (B, L, C) -> (B, C, L)
+        # Swap dims for Conv1d: (B,L,C) -> (B,C,L)
         obs_history = obs_history.permute(0, 2, 1)
         x = self.tcn(obs_history)
         

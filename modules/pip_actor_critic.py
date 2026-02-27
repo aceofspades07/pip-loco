@@ -1,6 +1,6 @@
 """
 PIP-Loco Asymmetric Actor-Critic Network
-PPO-based architecture with blind actor and privileged critic
+Blind actor and privileged critic
 """
 
 import math
@@ -13,10 +13,10 @@ from torch.distributions import Normal
 
 class ActorCritic(nn.Module):
     """
-    Actor: Processes partial observations (blind obs + velocity estimate + dreams)
-    Critic: Processes privileged simulation state (friction, terrain, true velocity, etc.)
+    Actor takes in partial observations (blind obs + velocity estimate + dreams)
+    Critic takes in privileged simulation state (friction, terrain, true velocity, etc.)
     
-    This class owns the sub-modules and handles input concatenation internally
+    This class owns the sub-modules (dreamer and estimator) and handles input concatenation internally
     """
 
     def __init__(
@@ -59,7 +59,7 @@ class ActorCritic(nn.Module):
             activation=activation,
         )
 
-        # Learnable log standard deviation 
+        # Learnable log std deviation 
         self.log_std = nn.Parameter(
             torch.log(torch.ones(num_actions) * init_noise_std)
         )
@@ -70,7 +70,7 @@ class ActorCritic(nn.Module):
     def _get_actor_input(
         self, obs: torch.Tensor, obs_history: torch.Tensor, detach: bool = True
     ) -> torch.Tensor:
-        # Construct full actor input: (obs, velocity_estimate, dreams)
+        # Construct input for actor
         velocity = self.estimator(obs_history)
         dreams = self.dreamer.generate_dreams(obs, self.horizon)
 
@@ -87,7 +87,7 @@ class ActorCritic(nn.Module):
         hidden_dims: List[int],
         activation: Type[nn.Module],
     ) -> nn.Sequential:
-        # Construct MLP with specified architecture. Final layer has no activation
+        # Final layer has no activation
         layers = []
         prev_dim = input_dim
 
@@ -128,7 +128,7 @@ class ActorCritic(nn.Module):
     def evaluate_actions(
         self, obs: torch.Tensor, obs_history: torch.Tensor, actions: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # Evaluate log probabilities and entropy of given actions under current policy.
+        # Evaluate log probabilities and entropy of given actions under current policy
 
         actor_input = self._get_actor_input(obs, obs_history, detach=True)
         mean = self.actor(actor_input)

@@ -107,7 +107,7 @@ class HybridTrainer:
                 mu = mu.to(self.device)
                 sigma = sigma.to(self.device)
                 
-                # Estimator update - supervised velocity prediction
+                # Estimator update
                 true_vel = privileged_obs[:, self.velocity_indices]
                 pred_vel = self.actor_critic.estimator(obs_history)
                 loss_est = F.mse_loss(pred_vel, true_vel)
@@ -116,7 +116,7 @@ class HybridTrainer:
                 loss_est.backward()
                 self.optimizer_est.step()
                 
-                # Dreamer update - model based learning 
+                # Dreamer update
                 pred_next_obs, pred_rewards, pred_actions, pred_values, _ = self.actor_critic.dreamer(obs, actions)
                 
                 loss_dynamics = F.mse_loss(pred_next_obs, next_obs)
@@ -129,7 +129,7 @@ class HybridTrainer:
                 loss_dream.backward()
                 self.optimizer_dream.step()
                 
-                # PPO Update - policy and value optimization
+                # PPO Update
                 log_probs, entropy = self.actor_critic.evaluate_actions(obs, obs_history, actions)
                 value_pred = self.actor_critic.evaluate(privileged_obs)
                 
@@ -137,7 +137,7 @@ class HybridTrainer:
                 log_probs = log_probs.view(-1, 1) 
                 ratio = torch.exp(log_probs - actions_log_probs)
                 
-                # Approximate KL divergence to monitor policy stability
+                # Approximate KL divergence
                 approx_kl = 0.5 * ((actions_log_probs - log_probs).pow(2).mean())
                 
                 # Clipped surrogate objective - prevents large policy updates

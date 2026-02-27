@@ -71,7 +71,7 @@ class NoLatentModel(nn.Module):
         hidden_dims: List[int],
         activation: Type[nn.Module]
     ) -> nn.Sequential:
-        # Linear-activation stacks. Final layer is linear. Returns nn.Sequential.
+        # Linear-activation stacks
         layers: List[nn.Module] = []
         prev_dim = input_dim
         for hidden_dim in hidden_dims:
@@ -83,24 +83,24 @@ class NoLatentModel(nn.Module):
         return nn.Sequential(*layers)
     
     def predict_next_state(self, obs: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
-        # Concatenate along last dim. Input: obs (B, O), action (B, A). Output: (B, O).
+        # Input: obs (B,O), action (B,A). Output: (B,O)
         state_action = torch.cat([obs, action], dim=-1)
         next_obs = self.dynamics(state_action)
         return next_obs
     
     def predict_reward(self, obs: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
-        # Concatenate along last dim. Input: obs (B, O), action (B, A). Output: (B, 1)
+        # Concatenate along last dim. Input: obs (B,O), action (B,A). Output: (B,1)
         state_action = torch.cat([obs, action], dim=-1)
         reward = self.reward(state_action)
         return reward
     
     def get_action(self, obs: torch.Tensor) -> torch.Tensor:
-        # Input: obs (B, O). Output: action (B, A)
+        # Input: obs (B, O). Output: action (B,A)
         action = self.policy(obs)
         return action
     
     def get_value(self, obs: torch.Tensor) -> torch.Tensor:
-        # Input: obs (B, O). Output: value (B, 1)
+        # Input: obs (B, O). Output: value (B,1)
         value = self.value(obs)
         return value
     
@@ -115,7 +115,7 @@ class NoLatentModel(nn.Module):
             collected_obs.append(next_obs)
             current_obs = next_obs
         
-        # Stack to (B, H, O) and flatten to (B, H*O) for Actor input.
+        # Stack to (B,H,O) and flatten to (B,H*O) for Actor input
         stacked = torch.stack(collected_obs, dim=1)
         dreams = stacked.flatten(start_dim=1)
         
