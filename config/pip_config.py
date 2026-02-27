@@ -25,7 +25,7 @@ class PIPGO2Cfg(GO2Cfg):
     class env(GO2Cfg.env):
         # Environment dimensions and episode settings
         num_envs = 1024                     # Number of parallel environments
-        num_observations = 45              # Blind obs vector dimension
+        num_observations = 53              # Blind obs vector dimension
         num_privileged_obs = None           # Will be calculated by GenesisWrapper based on terrain config
         num_actions = 12                   # Joint positions
         env_spacing = 2.0                  # Spacing between environments (m)
@@ -136,9 +136,9 @@ class PIPGO2Cfg(GO2Cfg):
         
         class ranges(GO2Cfg.commands.ranges):
             # Command sampling ranges
-            lin_vel_x = [-0.5, 0.5]        # Forward/backward (m/s)
-            lin_vel_y = [-1.0, 1.0]        # Lateral (m/s)
-            ang_vel_yaw = [-1.0, 1.0]      # Yaw rate (rad/s)
+            lin_vel_x = [-0.8, 0.8]        # Forward/backward (m/s)
+            lin_vel_y = [-0.1, 0.1]        # Lateral (m/s)
+            ang_vel_yaw = [-0.2, 0.2]      # Yaw rate (rad/s)
             heading = [-3.14, 3.14]        # Heading angle (rad)
 
     class domain_rand(GO2Cfg.domain_rand):
@@ -146,12 +146,25 @@ class PIPGO2Cfg(GO2Cfg):
 
         # Friction randomization
         randomize_friction = True
-        friction_range = [0.25, 1.25]
+        friction_range = [0.1, 1.0]
         
         # Mass randomization
         randomize_base_mass = True
-        added_mass_range = [-2.0, 3.0]     # kg
-        
+        added_mass_range = [-2.25, 2.25]     # kg
+
+        # Randomize friction and damping of joints
+        randomize_joint_friction = True
+        joint_friction_range = [0.10, 0.20]     # Nms/rad
+        randomize_joint_damping = True
+        joint_damping_range = [0.35, 0.65]      # Nms/rad/s
+
+
+        randomize_motor_strength = True
+        motor_strength_range = [0.9, 1.1]  
+
+        randomize_link_mass = True
+        added_link_mass_range = [0.9, 1.1]     # kg
+
         # External perturbations
         push_robots = True
         push_interval_s = 5.0               # Push interval (s)
@@ -183,7 +196,7 @@ class PIPGO2Cfg(GO2Cfg):
         soft_torque_limit = 0.9  # fraction of max torque 
         
         # Target heights
-        base_height_target = 0.36 # Desired base height (m)
+        base_height_target = 0.32 # Desired base height (m)
         foot_clearance_target = 0.05 # Desired foot clearance (m)
         foot_height_offset = 0.022 # Foot coordinate origin offset (m)
         foot_clearance_tracking_sigma = 0.01
@@ -194,32 +207,39 @@ class PIPGO2Cfg(GO2Cfg):
             # Reward component weights
 
             # Tracking rewards
-            tracking_lin_vel = 1.0
-            tracking_ang_vel = 0.5
+            tracking_lin_vel = 3.0
+            tracking_ang_vel = 1.5
             
             # Regularization penalties
-            lin_vel_z = -0.5 # Penalize vertical velocity
-            ang_vel_xy = -0.05 # Penalize roll and pitch rate
-            orientation = -1.0 # Penalize non-upright orientation
-            base_height = -2.0 # Penalize height deviation
+            lin_vel_z = -3.0 # Penalize vertical velocity
+            ang_vel_xy = -0.5 # Penalize roll and pitch rate
+            orientation = -7.0 # Penalize non-upright orientation
+            base_height = -10.0 # Penalize height deviation
             
             # Smoothness penalties
             dof_vel = -5.e-4    # Penalize joint velocities
-            dof_acc = -2.e-7    # Penalize joint accelerations
+            dof_acc = -2.e-6    # Penalize joint accelerations
             action_rate = -0.01 # Penalize action changes
             action_smoothness = -0.01 # Penalize action jerk
-            torques = -2.e-4    # Penalize torque magnitude
+            torques = -0.002    # Penalize torque magnitude
             
             # Quadratic barrier function penalties
             dof_pos_limits = -10.0   # Joint position limit violation
             dof_vel_limits = -1.0   # Joint velocity limit violation
             torque_limits = -1.0    # Torque limit violation
             collision = -1.0    # Body collision penalty
-            
+
+            dof_pos_stand_still = -2.0
+            stand_still = -5.0
+
             # Gait rewards
-            feet_air_time = 1.0            # Encourage foot lift
+            gait_timing = 3.0
+            contact_number = 2.0
+            feet_air_time = 0.0            # Encourage foot lift
             foot_clearance = 0.5           # Encourage ground clearance
             feet_slip = -0.1               # Penalize foot slipping
+
+
 
     class hardware_limits:
         """
@@ -277,26 +297,24 @@ class PIPTrainCfg(GO2CfgPPO):
     class policy(GO2CfgPPO.policy):
         # Actor-Critic network architecture.
 
-        # Network dimensions
         actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [512, 256, 128]
-        activation = 'elu' # Activation function
+        activation = 'elu' 
         
         init_noise_std = 1.0 # Initial policy std deviation for exploration
         
-        # Dreamer horizon for imagined rollouts
         dreamer_horizon = 5 
 
     class estimator:
         # Velocity estimator architecture
-        input_dim = 45 # Blind observation dimension
+        input_dim = 53 # Blind observations
         history_length = HISTORY_LEN
-        hidden_dims = [128, 64, 32] # TCN channel progression
+        hidden_dims = [128, 64, 32] 
         output_dim = 3 # Velocity (vx, vy, vz)
 
     class dreamer:
-        # Dreamer architecture (NoLatentModel)
-        obs_dim = 45 # Observation dimension
+        # Dreamer architecture
+        obs_dim = 53 # Observation dimension
         action_dim = 12 # Action dimension
         hidden_dims = [512, 256, 128] # MLP hidden layers
         activation = 'elu' # Activation function
@@ -324,8 +342,6 @@ class PIPTrainCfg(GO2CfgPPO):
         # GAE parameters
         gamma = 0.99    # Discount factor
         lam = 0.95      # GAE lambda
-
-        # KL divergence is logged for monitoring but does not affect training at all
         
         # True velocity indices in privileged_obs
         velocity_indices = [0, 1, 2]
@@ -335,22 +351,17 @@ class PIPTrainCfg(GO2CfgPPO):
 
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'HybridTrainer'
-        
         num_steps_per_env = 24 # Steps collected before update
-        
         max_iterations = 5000 # Total training iterations
-        
         save_interval = 200 # Save model every N iterations
-        
-        # Experiment tracking
+
         experiment_name = 'pip_go2'
         run_name = 'pip-loco_blind'
-        
         # Resume training
         resume = False
-        load_run = -1                      # -1 = last run
-        checkpoint = -1                    # -1 = last checkpoint
+        load_run = 'pip_go2_20260224_220934' # -1 = last run
+        checkpoint = -1 # -1 = last checkpoint
 
     class storage:
         # Device for tensor allocation
-        device = "cuda:0"
+        device = "cuda:0"     
